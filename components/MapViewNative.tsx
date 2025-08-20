@@ -11,6 +11,7 @@ interface MapViewNativeProps {
   location: any;
   whispers: Whisper[];
   onMarkerPress: (whisper: Whisper) => void;
+  onLongPress?: (event: any) => void;
 }
 
 export const MapViewNative: React.FC<MapViewNativeProps> = ({
@@ -21,6 +22,7 @@ export const MapViewNative: React.FC<MapViewNativeProps> = ({
   location,
   whispers,
   onMarkerPress,
+  onLongPress,
 }) => {
   const colors = {
     Joy: '#10b981',
@@ -72,6 +74,7 @@ export const MapViewNative: React.FC<MapViewNativeProps> = ({
       style={{ flex: 1 }}
       region={region}
       onRegionChangeComplete={onRegionChangeComplete}
+      onLongPress={onLongPress}
       customMapStyle={breakupMode ? [
         {
           "featureType": "all",
