@@ -11,8 +11,19 @@ import { FloatingActionButton } from '@/components/FloatingActionButton';
 import { MapViewNative } from '@/components/MapViewNative';
 import Animated, { useSharedValue, withSpring } from 'react-native-reanimated';
 import { Whisper } from '@/types';
+import MapView, { MapPressEvent } from 'react-native-maps';
+import { ButterflyBurst } from '@/components/ButterflyBurst';
 
 const { width, height } = Dimensions.get('window');
+
+interface Animation {
+  id: string;
+  top: number;
+  left: number;
+  size: number;
+  source: any;
+  loop?: boolean;
+}
 
 export default function DiscoverScreen() {
   const { session } = useSession();
@@ -27,6 +38,7 @@ export default function DiscoverScreen() {
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   });
+  const [animations, setAnimations] = useState<Animation[]>([]);
   
   const mapRef = useRef<any>(null);
   const fabScale = useSharedValue(1);
@@ -34,6 +46,27 @@ export default function DiscoverScreen() {
   useEffect(() => {
     initializeMap();
     loadNearbyWhispers();
+
+    // Play butterfly2 every 30 seconds in the center of the screen
+    const interval = setInterval(() => {
+      const newSize = 450;
+      const top = height / 2 - newSize / 2;
+      const left = width / 2 - newSize / 2;
+
+      setAnimations((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString() + Math.random(),
+          top,
+          left,
+          size: newSize,
+          source: require('../../assets/animations/butterfly2.json'),
+          loop: false,
+        },
+      ]);
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -94,12 +127,9 @@ export default function DiscoverScreen() {
       );
       return;
     }
-
-    // Simulate proximity unlock (in real app, this would be more sophisticated)
+    
     setSelectedWhisper(whisper);
     setModalVisible(true);
-    
-    // Mark as discovered
     await WhisperService.markAsDiscovered(whisper._id, session.anonymousId);
   };
 
@@ -134,6 +164,39 @@ export default function DiscoverScreen() {
     fabScale.value = withSpring(breakupMode ? 1 : 0.9);
   };
 
+  const handleLongPress = async (event: MapPressEvent) => {
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    if (mapRef.current) {
+      const point = await mapRef.current.pointForCoordinate({ latitude, longitude });
+      setAnimations((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString() + Math.random(),
+          top: point.y - 100, // Adjust for animation size
+          left: point.x - 100,
+          size: 200,
+          source: require('../../assets/animations/butterfly2.json'),
+        },
+      ]);
+    }
+  };
+
+  const handleAnimationFinish = (id: string) => {
+    setTimeout(() => {
+      setAnimations((prev) => prev.filter((anim) => anim.id !== id));
+    }, 3000);
+  };
+
+  const latLngToScreen = (lat: number, lng: number) => {
+    // This is a mock function. In a real app, you would use
+    // mapRef.current.pointForCoordinate({ latitude: lat, longitude: lng })
+    // to get the screen coordinates.
+    return {
+      top: height / 2 - 100, // Center of the screen for demo
+      left: width / 2 - 100,
+    };
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <LinearGradient
@@ -148,6 +211,7 @@ export default function DiscoverScreen() {
           location={location}
           whispers={whispers}
           onMarkerPress={handleMarkerPress}
+          onLongPress={handleLongPress}
         />
 
         {/* Header Controls */}
@@ -213,6 +277,19 @@ export default function DiscoverScreen() {
           breakupMode={breakupMode}
         />
       )}
+
+      {/* Butterfly Animations */}
+      {animations.map((anim) => (
+        <ButterflyBurst
+          key={anim.id}
+          top={anim.top}
+          left={anim.left}
+          size={anim.size}
+          source={anim.source}
+          loop={anim.loop}
+          onAnimationFinish={!anim.loop ? () => handleAnimationFinish(anim.id) : undefined}
+        />
+      ))}
     </View>
   );
 }
