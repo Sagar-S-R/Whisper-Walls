@@ -172,5 +172,5 @@ server/logs/
 server/*.log
 
 # Package lock files (uncomment if you want to ignore them)
-# package-lock.json
-# yarn.lock
+package-lock.json
+yarn.lock

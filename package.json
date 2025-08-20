@@ -39,7 +39,7 @@
     "expo-system-ui": "~5.0.10",
     "expo-web-browser": "~14.2.0",
     "express": "^5.1.0",
-    "lottie-react-native": "7.2.2",
+    "lottie-react-native": "^7.2.2",
     "lucide-react-native": "^0.475.0",
     "mongoose": "^8.17.1",
     "nativewind": "^4.1.23",
@@ -59,6 +59,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@types/expo__vector-icons": "^9.0.1",
     "@types/react": "~19.0.10",
     "cross-env": "^10.0.0",
     "typescript": "~5.8.3"
