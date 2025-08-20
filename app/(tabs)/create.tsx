@@ -16,9 +16,83 @@ import { router } from 'expo-router';
 import { useSession } from '@/contexts/SessionContext';
 import { useLocation } from '@/contexts/LocationContext';
 import { WhisperService } from '@/services/WhisperService';
-import Animated, { useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { useSharedValue, withSpring, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import LottieView from 'lottie-react-native';
 
 const { width, height } = Dimensions.get('window');
+
+// Inspirational quotes for each emotion
+const emotionQuotes = {
+  'Joy': [
+    "Happiness is not something ready made. It comes from your own actions.",
+    "The most wasted of days is one without laughter.",
+    "Joy is the simplest form of gratitude.",
+    "Every moment is a fresh beginning.",
+    "Smile, it's the key that fits the lock of everybody's heart.",
+    "Happiness blooms from within.",
+    "Choose joy, spread light.",
+    "Life is beautiful when you find reasons to smile.",
+    "Dancing through life with pure joy.",
+    "Celebrate every small victory."
+  ],
+  'Longing': [
+    "Distance means nothing when someone means everything.",
+    "Missing you is my heart's way of reminding me how much I love you.",
+    "The heart wants what it wants.",
+    "Some people come into our lives and leave footprints on our hearts.",
+    "Longing is the agony of the heart.",
+    "Missing someone is your heart's way of loving them.",
+    "Time stops when I think of you.",
+    "Every sunset reminds me of you.",
+    "Love knows no distance.",
+    "You're always on my mind."
+  ],
+  'Gratitude': [
+    "Gratitude turns what we have into enough.",
+    "Be thankful for small mercies.",
+    "Gratitude is the fairest blossom which springs from the soul.",
+    "In everything, give thanks.",
+    "Grateful hearts are magnets for miracles.",
+    "Appreciation is a wonderful thing.",
+    "Count blessings, not problems.",
+    "Gratitude makes ordinary moments extraordinary.",
+    "Thankful, grateful, blessed.",
+    "Every day is a gift."
+  ],
+  'Apology': [
+    "I'm sorry for the words I said when I was hurt.",
+    "Forgiveness is the key to healing.",
+    "I take full responsibility for my actions.",
+    "My heart aches for the pain I caused.",
+    "Words cannot express how truly sorry I am.",
+    "I hope you can find it in your heart to forgive me.",
+    "I'm learning from my mistakes.",
+    "Your forgiveness would mean everything to me.",
+    "I promise to do better.",
+    "Sorry isn't just a word, it's a promise to change."
+  ],
+  'Heartbreak': [
+    "Sometimes the heart sees what is invisible to the eye.",
+    "Healing takes time, and that's okay.",
+    "Broken hearts still beat.",
+    "Pain is temporary, but quitting lasts forever.",
+    "Even the darkest night will end and the sun will rise.",
+    "It's okay to not be okay.",
+    "You are stronger than you think.",
+    "This too shall pass.",
+    "Every ending is a new beginning.",
+    "Time heals all wounds."
+  ]
+};
+
+// Animation mappings for each tone
+const toneAnimations = {
+  'Joy': require('../../assets/animations/celeb1.json'),
+  'Longing': require('../../assets/animations/hearts.json'),
+  'Gratitude': require('../../assets/animations/celeb2.json'), 
+  'Apology': require('../../assets/animations/heartBroke.json'),
+  'Heartbreak': require('../../assets/animations/heartBroke.json'),
+};
 
 const tones = [
   { key: 'Joy', label: 'Joy', icon: 'happy', color: '#10b981', description: 'Celebration, happiness, excitement' },
@@ -36,8 +110,90 @@ export default function CreateScreen() {
   const [selectedTone, setSelectedTone] = useState<string>('');
   const [whyHere, setWhyHere] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAnimation, setShowAnimation] = useState(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [showQuoteCard, setShowQuoteCard] = useState(false);
+  const [currentQuote, setCurrentQuote] = useState('');
   
   const slideAnim = useSharedValue(0);
+  const animationOpacity = useSharedValue(0);
+  const animationScale = useSharedValue(0.5);
+  const cardOpacity = useSharedValue(0);
+  const cardScale = useSharedValue(0.3);
+  const cardRotation = useSharedValue(-15);
+  const cardTranslateX = useSharedValue(width);
+  const cardTranslateY = useSharedValue(height * 0.3);
+  const backgroundBlur = useSharedValue(0);
+
+  // 50 Inspirational quotes (10 per emotion)
+  const emotionQuotes = {
+    Joy: [
+      "Happiness is not by chance, but by choice",
+      "Joy is the simplest form of gratitude",
+      "Find joy in the ordinary moments",
+      "Let your smile change the world",
+      "Choose joy, spread light",
+      "Happiness blooms from within",
+      "Joy shared is joy doubled",
+      "Today is a good day for a good day",
+      "Be the reason someone smiles today",
+      "Joy is a choice you make every morning"
+    ],
+    Longing: [
+      "The heart wants what it wants",
+      "Distance means nothing when love means everything",
+      "Some people search their whole lives to find what you found",
+      "Missing someone is your heart's way of reminding you that you love them",
+      "The best love is the one that makes you a better person",
+      "Love knows no distance or time",
+      "Sometimes the heart sees what is invisible to the eye",
+      "True love never has an ending",
+      "The greatest thing you'll ever learn is to love and be loved in return",
+      "Love bridges any distance and conquers all time"
+    ],
+    Gratitude: [
+      "Gratitude turns what we have into enough",
+      "In every moment, there is something to be grateful for",
+      "Gratitude is the fairest blossom which springs from the soul",
+      "Be thankful for small mercies",
+      "Gratitude makes sense of our past and brings peace for today",
+      "A grateful heart is a magnet for miracles",
+      "Gratitude is not only the greatest virtue but the parent of others",
+      "Count blessings, not problems",
+      "Grateful hearts are happy hearts",
+      "The thankful receiver bears a plentiful harvest"
+    ],
+    Apology: [
+      "Sorry is the first step to healing",
+      "A sincere apology has the power to heal relationships",
+      "Everyone makes mistakes, but not everyone learns from them",
+      "Forgiveness is the fragrance the violet sheds on the heel that crushed it",
+      "It takes courage to say sorry and strength to forgive",
+      "Mistakes are proof that you're trying",
+      "The best apology is changed behavior",
+      "Forgiveness doesn't excuse their behavior, but it prevents their behavior from destroying your heart",
+      "We all make mistakes, but the wise learn from them",
+      "A genuine apology is like a bridge between hearts"
+    ],
+    Heartbreak: [
+      "Pain changes people, but it also makes them stronger",
+      "Sometimes good things fall apart so better things can come together",
+      "Your heart will heal, and you will love again",
+      "Every ending is a new beginning in disguise",
+      "Broken hearts still beat with hope",
+      "The cure for a broken heart is not found in another person",
+      "You are stronger than you think and more resilient than you know",
+      "Sometimes you need a broken heart to learn what makes you whole",
+      "Healing doesn't mean the damage never existed",
+      "Your heart knows how to heal itself, give it time"
+    ]
+  };
+
+  const getRandomQuote = (tone: string) => {
+    const quotes = emotionQuotes[tone as keyof typeof emotionQuotes];
+    return quotes ? quotes[Math.floor(Math.random() * quotes.length)] : '';
+  };
   const textInputRef = useRef<TextInput>(null);
 
   const handleNext = () => {
@@ -66,6 +222,118 @@ export default function CreateScreen() {
     }
   };
 
+  const closeSuccessPopup = () => {
+    setShowSuccessPopup(false);
+    setShowSuccessAnimation(false);
+    setShowQuoteCard(false);
+    backgroundBlur.value = withTiming(0, { duration: 500 });
+    animationOpacity.value = withTiming(0, { duration: 500 });
+    resetAnimationStates();
+    
+    // Reset form
+    setWhisperText('');
+    setSelectedTone('');
+    setWhyHere('');
+    setStep(1);
+    slideAnim.value = 0;
+  };
+
+  const showQuoteCardAnimation = () => {
+    const quote = getRandomQuote(selectedTone);
+    setCurrentQuote(quote);
+    setShowQuoteCard(true);
+    
+    // Background blur
+    backgroundBlur.value = withTiming(10, { duration: 800 });
+    
+    // Card animation from bottom-right with rotation
+    cardOpacity.value = withTiming(1, { duration: 600 });
+    cardTranslateX.value = withTiming(0, { duration: 800 });
+    cardTranslateY.value = withTiming(0, { duration: 800 });
+    cardRotation.value = withTiming(0, { duration: 800 });
+    cardScale.value = withTiming(1, { duration: 800 });
+  };
+
+  const hideQuoteCard = () => {
+    // Phase 1: Start fading out the card
+    cardOpacity.value = withTiming(0, { duration: 800 });
+    
+    setTimeout(() => {
+      setShowQuoteCard(false);
+      
+      // Phase 2: Immediately show success animation (background still blurred)
+      setShowSuccessAnimation(true);
+      animationOpacity.value = withTiming(1, { duration: 500 });
+      animationScale.value = withTiming(1, { duration: 800 });
+      
+      // Phase 3: After success animation plays, show the popup dialog
+      setTimeout(() => {
+        setShowSuccessAnimation(false);
+        animationOpacity.value = withTiming(0, { duration: 500 });
+        
+        // Show the success popup with buttons
+        setTimeout(() => {
+          Alert.alert(
+            'Whisper Created! 🌟',
+            'Your anonymous message has been placed at this location for others to discover.',
+            [
+              {
+                text: 'Create Another',
+                onPress: () => {
+                  backgroundBlur.value = withTiming(0, { duration: 500 });
+                  setWhisperText('');
+                  setSelectedTone('');
+                  setWhyHere('');
+                  setStep(1);
+                  slideAnim.value = 0;
+                  resetAnimationStates();
+                }
+              },
+              {
+                text: 'Explore Map',
+                onPress: () => {
+                  backgroundBlur.value = withTiming(0, { duration: 500 });
+                  resetAnimationStates();
+                  router.push('/(tabs)');
+                }
+              }
+            ]
+          );
+        }, 500);
+      }, 3000); // Show success animation for 3 seconds
+    }, 800); // Wait for card to fade out
+  };
+
+  const resetAnimationStates = () => {
+    cardOpacity.value = 0;
+    cardScale.value = 0.3;
+    cardRotation.value = -15;
+    cardTranslateX.value = width;
+    cardTranslateY.value = height * 0.3;
+    backgroundBlur.value = 0;
+    animationOpacity.value = 0;
+    animationScale.value = 0.5;
+  };
+
+  const showCreateAnimation = () => {
+    setShowAnimation(true);
+    animationOpacity.value = withTiming(1, { duration: 300 });
+    animationScale.value = withTiming(1, { duration: 500 });
+    
+    // Hide animation after 3 seconds
+    setTimeout(() => {
+      hideAnimation();
+    }, 3000);
+  };
+
+  const hideAnimation = () => {
+    animationOpacity.value = withTiming(0, { duration: 500 });
+    animationScale.value = withTiming(0.5, { duration: 500 });
+    setTimeout(() => {
+      setShowAnimation(false);
+    }, 500);
+  };
+
   const handleSubmit = async () => {
     if (!location && Platform.OS !== 'web') {
       Alert.alert('Location Required', 'Please enable location to create a whisper.');
@@ -77,45 +345,39 @@ export default function CreateScreen() {
       return;
     }
 
+    // Show quote card animation first
+    showQuoteCardAnimation();
     setIsSubmitting(true);
     
-    try {
-      const whisperData = {
-        text: whisperText.trim(),
-        tone: selectedTone,
-        location: location || { latitude: 37.78825, longitude: -122.4324 },
-        whyHere: whyHere.trim(),
-        sessionId: session.anonymousId,
-      };
+    // Start creating whisper while card is showing
+    setTimeout(async () => {
+      try {
+        const whisperData = {
+          text: whisperText.trim(),
+          tone: selectedTone,
+          location: location || { latitude: 37.78825, longitude: -122.4324 },
+          whyHere: whyHere.trim(),
+          sessionId: session.anonymousId,
+        };
 
-      await WhisperService.createWhisper(whisperData);
-      
-      Alert.alert(
-        'Whisper Created! 🌟',
-        'Your anonymous message has been placed at this location for others to discover.',
-        [
-          {
-            text: 'Create Another',
-            onPress: () => {
-              setWhisperText('');
-              setSelectedTone('');
-              setWhyHere('');
-              setStep(1);
-              slideAnim.value = 0;
-            }
-          },
-          {
-            text: 'Explore Map',
-            onPress: () => router.push('/(tabs)')
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('Error creating whisper:', error);
-      Alert.alert('Error', 'Failed to create whisper. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+        await WhisperService.createWhisper(whisperData);
+        
+        // Hide quote card and show success animation
+        hideQuoteCard();
+        
+      } catch (error) {
+        console.error('Error creating whisper:', error);
+        // Reset animations on error
+        backgroundBlur.value = withTiming(0, { duration: 500 });
+        setShowQuoteCard(false);
+        resetAnimationStates();
+        Alert.alert('Error', 'Failed to create whisper. Please try again.');
+      } finally {
+        setTimeout(() => {
+          setIsSubmitting(false);
+        }, 5000);
+      }
+    }, 2000); // Let the card animation settle
   };
 
   const renderStep1 = () => (
@@ -462,6 +724,276 @@ export default function CreateScreen() {
     </View>
   );
 
+  const animatedOverlayStyle = useAnimatedStyle(() => ({
+    opacity: animationOpacity.value,
+    transform: [{ scale: animationScale.value }],
+  }));
+
+  const cardAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: cardOpacity.value,
+    transform: [
+      { translateX: cardTranslateX.value },
+      { translateY: cardTranslateY.value },
+      { rotate: `${cardRotation.value}deg` },
+      { scale: cardScale.value }
+    ],
+  }));
+
+  const backgroundBlurStyle = useAnimatedStyle(() => ({
+    opacity: backgroundBlur.value > 0 ? 0.8 : 0,
+  }));
+
+  const renderQuoteCard = () => {
+    if (!showQuoteCard) return null;
+
+    const selectedToneData = tones.find(t => t.key === selectedTone);
+
+    return (
+      <>
+        {/* Background Blur */}
+        <Animated.View style={[{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          zIndex: 998,
+        }, backgroundBlurStyle]} />
+
+        {/* Quote Card */}
+        <Animated.View style={[{
+          position: 'absolute',
+          top: height * 0.3,
+          left: width * 0.1,
+          right: width * 0.1,
+          zIndex: 999,
+        }, cardAnimatedStyle]}>
+          <View style={{
+            backgroundColor: 'white',
+            borderRadius: 20,
+            padding: 24,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.3,
+            shadowRadius: 20,
+            elevation: 20,
+            borderLeftWidth: 5,
+            borderLeftColor: selectedToneData?.color || '#ec4899',
+          }}>
+            <Text style={{
+              fontSize: 18,
+              fontStyle: 'italic',
+              color: '#1f2937',
+              lineHeight: 26,
+              textAlign: 'center',
+              marginBottom: 16,
+            }}>
+              "{currentQuote}"
+            </Text>
+            
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: 16,
+            }}>
+              <View style={{
+                backgroundColor: selectedToneData?.color || '#ec4899',
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                marginRight: 8,
+              }} />
+              <Text style={{
+                fontSize: 14,
+                color: '#6b7280',
+                fontWeight: '500',
+              }}>
+                Creating your whisper...
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+      </>
+    );
+  };
+
+  const renderCreateAnimation = () => {
+    if (!showSuccessAnimation || !selectedTone) return null;
+
+    const animationSource = toneAnimations[selectedTone as keyof typeof toneAnimations];
+    
+    return (
+      <View style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000,
+      }}>
+        <Animated.View style={[{
+          alignItems: 'center',
+        }, animatedOverlayStyle]}>
+          {animationSource && (
+            <LottieView
+              source={animationSource}
+              autoPlay
+              loop={false}
+              style={{
+                width: width * 0.6,
+                height: width * 0.6,
+                maxWidth: 300,
+                maxHeight: 300,
+              }}
+            />
+          )}
+        </Animated.View>
+      </View>
+    );
+  };
+
+  const renderSuccessPopup = () => {
+    if (!showSuccessPopup) return null;
+
+    return (
+      <>
+        {/* Background Blur */}
+        <Animated.View style={[{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 999,
+        }, backgroundBlurStyle]} />
+
+        {/* Success Animation Above Popup */}
+        {showSuccessAnimation && selectedTone && (
+          <View style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1001,
+            paddingBottom: 200, // Position above the popup
+          }}>
+            <Animated.View style={[{
+              alignItems: 'center',
+            }, animatedOverlayStyle]}>
+              {toneAnimations[selectedTone as keyof typeof toneAnimations] && (
+                <LottieView
+                  source={toneAnimations[selectedTone as keyof typeof toneAnimations]}
+                  autoPlay
+                  loop={false}
+                  style={{
+                    width: width * 0.4,
+                    height: width * 0.4,
+                    maxWidth: 200,
+                    maxHeight: 200,
+                  }}
+                />
+              )}
+            </Animated.View>
+          </View>
+        )}
+
+        {/* Success Popup */}
+        <View style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          paddingHorizontal: 40,
+        }}>
+          <View style={{
+            backgroundColor: 'white',
+            borderRadius: 20,
+            padding: 30,
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.3,
+            shadowRadius: 20,
+            elevation: 10,
+          }}>
+            <Text style={{
+              fontSize: 24,
+              fontWeight: 'bold',
+              color: '#be185d',
+              marginBottom: 10,
+              textAlign: 'center',
+            }}>
+              Whisper Created! 🌟
+            </Text>
+            <Text style={{
+              fontSize: 16,
+              color: '#666',
+              textAlign: 'center',
+              marginBottom: 30,
+              lineHeight: 22,
+            }}>
+              Your anonymous message has been placed at this location for others to discover.
+            </Text>
+            <View style={{
+              flexDirection: 'row',
+              gap: 15,
+            }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#be185d',
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                }}
+                onPress={closeSuccessPopup}
+              >
+                <Text style={{
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: 16,
+                }}>
+                  Create Another
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#e5e7eb',
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                }}
+                onPress={() => {
+                  closeSuccessPopup();
+                  router.push('/(tabs)');
+                }}
+              >
+                <Text style={{
+                  color: '#374151',
+                  fontWeight: 'bold',
+                  fontSize: 16,
+                }}>
+                  Explore Map
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </>
+    );
+  };
+
   return (
     <LinearGradient
       colors={['#fdf2f8', '#e0e7ff', '#ddd6fe']}
@@ -506,6 +1038,15 @@ export default function CreateScreen() {
           </Animated.View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Quote Card Animation */}
+      {renderQuoteCard()}
+
+      {/* Success Animation */}
+      {renderCreateAnimation()}
+
+      {/* Success Popup */}
+      {renderSuccessPopup()}
     </LinearGradient>
   );
 }

@@ -172,6 +172,7 @@ export default function DiscoverScreen() {
               boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
             }}
           >
+            
             <Text 
               style={{
                 fontSize: 14,
@@ -182,7 +183,7 @@ export default function DiscoverScreen() {
               {breakupMode ? 'Exit Gentle Mode' : 'Gentle Mode'}
             </Text>
           </TouchableOpacity>
-
+          
           <TouchableOpacity
             onPress={loadNearbyWhispers}
             style={{ 

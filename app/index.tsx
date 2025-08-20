@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useSession } from '@/contexts/SessionContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+
 export default function Index() {
   const { session } = useSession();
 
