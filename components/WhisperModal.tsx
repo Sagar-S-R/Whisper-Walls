@@ -38,7 +38,7 @@ export function WhisperModal({ whisper, visible, onClose, breakupMode = false }:
 
   useEffect(() => {
     if (visible) {
-      scale.value = withSpring(1, { damping: 15, stiffness: 150 });
+      scale.value = withSpring(1, { damping: 16, stiffness: 150 });
       opacity.value = withSpring(1);
     } else {
       scale.value = withSpring(0);
