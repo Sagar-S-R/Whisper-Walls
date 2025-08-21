@@ -16,12 +16,13 @@ interface SmartMapViewProps {
 }
 
 export const SmartMapView: React.FC<SmartMapViewProps> = (props) => {
-  // Use OpenStreetMap for web and Android, Apple Maps for iOS
+  // Always use OpenStreetMap for Android and web (no API key needed)
+  // Only use Apple Maps for iOS (which has built-in support)
   if (Platform.OS === 'ios') {
     // Use Apple Maps for iOS
     return <MapViewNative {...props} />;
   } else {
-    // Use OpenStreetMap for web and Android
+    // Use OpenStreetMap for web and Android (no API key required)
     return (
       <OpenStreetMapView
         location={props.location}

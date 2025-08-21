@@ -294,7 +294,7 @@ export default function CreateScreen() {
                 onPress: () => {
                   backgroundBlur.value = withTiming(0, { duration: 500 });
                   resetAnimationStates();
-                  router.push('/(tabs)');
+                                        router.replace('/');
                 }
               }
             ]
@@ -360,8 +360,13 @@ export default function CreateScreen() {
           sessionId: session.anonymousId,
         };
 
-        await WhisperService.createWhisper(whisperData);
-        
+        const created = await WhisperService.createWhisper(whisperData);
+        console.log('[CreateScreen] createWhisper returned:', created);
+
+        if (!created || !('_id' in created)) {
+          throw new Error('createWhisper did not return created object');
+        }
+
         // Hide quote card and show success animation
         hideQuoteCard();
         
@@ -371,7 +376,9 @@ export default function CreateScreen() {
         backgroundBlur.value = withTiming(0, { duration: 500 });
         setShowQuoteCard(false);
         resetAnimationStates();
-        Alert.alert('Error', 'Failed to create whisper. Please try again.');
+        // Show the actual error message for debugging
+        const errorMsg = error && typeof error === 'object' && 'message' in error ? error.message : 'Unknown error';
+        Alert.alert('Error Creating Whisper', `Failed to create whisper: ${errorMsg}\n\nCheck Metro logs for more details.`);
       } finally {
         setTimeout(() => {
           setIsSubmitting(false);

@@ -4,10 +4,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSession } from '@/contexts/SessionContext';
+import { useAuth } from '@/contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SettingsScreen() {
   const { session, clearSession } = useSession();
+  const { user, isAuthenticated, logout } = useAuth();
   const [notifications, setNotifications] = useState(true);
   const [breakupMode, setBreakupMode] = useState(false);
   const [proximityRadius, setProximityRadius] = useState(100);
@@ -184,16 +186,84 @@ export default function SettingsScreen() {
               fontWeight: 'bold',
               color: '#1f2937'
             }}>
-              Anonymous Explorer
+              {user?.username || 'Anonymous Explorer'}
             </Text>
+            {user?.displayName && (
+              <Text style={{
+                fontSize: 16,
+                color: '#6b7280',
+                marginTop: 4
+              }}>
+                {user.displayName}
+              </Text>
+            )}
             <Text style={{
               fontSize: 14,
-              color: '#6b7280'
+              color: '#6b7280',
+              marginTop: 8,
+              textAlign: 'center'
             }}>
-              ID: {session.anonymousId.substring(0, 8)}...
+              Anonymous ID: {session.anonymousId.substring(0, 8)}...
+            </Text>
+            <Text style={{
+              fontSize: 12,
+              color: '#9ca3af',
+              marginTop: 8,
+              textAlign: 'center',
+              lineHeight: 16
+            }}>
+              {isAuthenticated ? 
+                'Your whispers remain completely anonymous.\nOnly you can see your username in settings.' :
+                'You are browsing anonymously.\nSign up to save your preferences and discoveries.'
+              }
             </Text>
           </View>
         </View>
+
+        {/* User Details - Only show if authenticated */}
+        {isAuthenticated && user && (
+          <View style={{
+            backgroundColor: 'white',
+            marginHorizontal: 16,
+            marginBottom: 24,
+            borderRadius: 16,
+            padding: 16,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.05,
+            shadowRadius: 3,
+            elevation: 2
+          }}>
+            <Text style={{
+              fontSize: 16,
+              fontWeight: '600',
+              color: '#1f2937',
+              marginBottom: 12
+            }}>
+              Account Details
+            </Text>
+            <View style={{ marginBottom: 8 }}>
+              <Text style={{ fontSize: 14, color: '#6b7280' }}>Username</Text>
+              <Text style={{ fontSize: 16, color: '#1f2937', fontWeight: '500' }}>{user.username}</Text>
+            </View>
+            <View style={{ marginBottom: 8 }}>
+              <Text style={{ fontSize: 14, color: '#6b7280' }}>Email</Text>
+              <Text style={{ fontSize: 16, color: '#1f2937', fontWeight: '500' }}>{user.email}</Text>
+            </View>
+            {user.displayName && (
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ fontSize: 14, color: '#6b7280' }}>Display Name</Text>
+                <Text style={{ fontSize: 16, color: '#1f2937', fontWeight: '500' }}>{user.displayName}</Text>
+              </View>
+            )}
+            <View>
+              <Text style={{ fontSize: 14, color: '#6b7280' }}>Member Since</Text>
+              <Text style={{ fontSize: 16, color: '#1f2937', fontWeight: '500' }}>
+                {new Date(session.createdAt).toLocaleDateString()}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Preferences */}
         {renderSection(
@@ -274,17 +344,63 @@ export default function SettingsScreen() {
           </>
         )}
 
-        {/* Danger Zone */}
+        {/* Account */}
         {renderSection(
           'Account',
-          renderSettingItem(
-            'trash',
-            'Reset All Data',
-            'Clear all whispers, discoveries, and start fresh',
-            handleResetData,
-            undefined,
-            true
-          )
+          <>
+            {isAuthenticated ? (
+              <>
+                {renderSettingItem(
+                  'log-out',
+                  'Logout',
+                  'Clear your session and log out of Whisper Walls',
+                  () => {
+                    Alert.alert(
+                      'Logout',
+                      'Are you sure you want to log out?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Logout',
+                          style: 'destructive',
+                          onPress: () => {
+                            logout();
+                            router.replace('/(onboarding)');
+                          },
+                        },
+                      ]
+                    );
+                  }
+                )}
+                <View style={{ height: 1, backgroundColor: '#f3f4f6', marginHorizontal: 16 }} />
+              </>
+            ) : (
+              <>
+                {renderSettingItem(
+                  'person-add',
+                  'Sign Up',
+                  'Create an account to save your preferences and discoveries',
+                  () => router.push('/(onboarding)/register')
+                )}
+                <View style={{ height: 1, backgroundColor: '#f3f4f6', marginHorizontal: 16 }} />
+                {renderSettingItem(
+                  'log-in',
+                  'Sign In',
+                  'Log in to your existing account',
+                  () => router.push('/(onboarding)/login')
+                )}
+                <View style={{ height: 1, backgroundColor: '#f3f4f6', marginHorizontal: 16 }} />
+              </>
+            )}
+            {renderSettingItem(
+              'trash',
+              'Reset All Data',
+              'Clear all whispers, discoveries, and start fresh',
+              handleResetData,
+              undefined,
+              true
+            )}
+          </>
         )}
 
         {/* App Info */}
@@ -309,8 +425,8 @@ export default function SettingsScreen() {
             color: '#9ca3af',
             lineHeight: 18
           }}>
-            Made with ❤️ for anonymous emotional connection.{'\n'}
-            Your whispers are stored anonymously and cannot be traced back to you.
+            Made with ❤️ for emotional connection.{'\n'}
+            Your profile is visible in settings, but all whispers remain completely anonymous and cannot be traced back to you.
           </Text>
         </View>
 

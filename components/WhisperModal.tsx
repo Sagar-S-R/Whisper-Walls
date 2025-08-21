@@ -231,7 +231,7 @@ export function WhisperModal({ whisper, visible, onClose, breakupMode = false }:
                 fontSize: 14,
                 color: breakupMode ? '#d1d5db' : '#6b7280'
               }}>
-                {whisper.location.latitude.toFixed(4)}, {whisper.location.longitude.toFixed(4)}
+                {whisper.location?.latitude?.toFixed?.(4) || 'N/A'}, {whisper.location?.longitude?.toFixed?.(4) || 'N/A'}
               </Text>
             </View>
 

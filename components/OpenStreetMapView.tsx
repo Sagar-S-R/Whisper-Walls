@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Whisper } from '@/types';
@@ -17,6 +17,13 @@ export const OpenStreetMapView: React.FC<OpenStreetMapProps> = ({
   breakupMode,
 }) => {
   const webViewRef = useRef<any>(null);
+  const [mapHtml, setMapHtml] = useState<string>('');
+
+  // Generate initial map HTML
+  useEffect(() => {
+    const initialHtml = generateMapHTML();
+    setMapHtml(initialHtml);
+  }, []);
 
   const colors = {
     Joy: '#10b981',
@@ -27,13 +34,16 @@ export const OpenStreetMapView: React.FC<OpenStreetMapProps> = ({
   };
 
   const generateMapHTML = () => {
+    // Ensure we always have valid coordinates
     const centerLat = location?.latitude || 37.78825;
     const centerLng = location?.longitude || -122.4324;
+    
+    console.log('🗺️ Generating map with coordinates:', { centerLat, centerLng, hasLocation: !!location });
     
     const whisperMarkers = whispers.map((whisper, index) => {
       const color = breakupMode ? '#9ca3af' : colors[whisper.tone];
       return `
-        L.circleMarker([${whisper.location.latitude}, ${whisper.location.longitude}], {
+        L.circleMarker([${whisper.location?.latitude ?? centerLat}, ${whisper.location?.longitude ?? centerLng}], {
           color: 'white',
           weight: 2,
           fillColor: '${color}',
@@ -43,7 +53,7 @@ export const OpenStreetMapView: React.FC<OpenStreetMapProps> = ({
         .bindPopup(\`
           <div style="text-align: center;">
             <h4 style="margin: 0; color: ${color};">\${whisper.tone}</h4>
-            <p style="margin: 5px 0; font-size: 12px;">"\${whisper.content.substring(0, 100)}..."</p>
+            <p style="margin: 5px 0; font-size: 12px;">"\${(whisper.text || '').substring(0, 100)}..."</p>
           </div>
         \`)
         .on('click', function() {
@@ -53,7 +63,7 @@ export const OpenStreetMapView: React.FC<OpenStreetMapProps> = ({
           }));
         });
       `;
-    }).join('\\n');
+    }).join('\n');
 
     return `
     <!DOCTYPE html>
@@ -100,13 +110,22 @@ export const OpenStreetMapView: React.FC<OpenStreetMapProps> = ({
         var mapContainer = document.getElementById('map');
         mapContainer.style.filter = 'grayscale(100%)';
         ` : ''}
-        
-        console.log('🗺️ OpenStreetMap loaded successfully!');
       </script>
     </body>
     </html>
     `;
   };
+
+  // Update map HTML whenever whispers or location changes
+  useEffect(() => {
+    const newMapHtml = generateMapHTML();
+    console.log('🗺️ Generated map HTML with center:', {
+      lat: location?.latitude || 37.78825,
+      lng: location?.longitude || -122.4324,
+      whispersCount: whispers.length
+    });
+    setMapHtml(newMapHtml);
+  }, [whispers, location, breakupMode]);
 
   const handleMessage = (event: any) => {
     try {
@@ -124,30 +143,52 @@ export const OpenStreetMapView: React.FC<OpenStreetMapProps> = ({
 
   return (
     <View style={{ flex: 1 }}>
-      <WebView
-        ref={webViewRef}
-        source={{ html: generateMapHTML() }}
-        style={{ flex: 1 }}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        startInLoadingState={true}
-        onMessage={handleMessage}
-        renderLoading={() => (
-          <View style={{
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: '#f3f4f6',
-          }}>
-            <Text style={{ fontSize: 18, color: '#be185d', fontWeight: 'bold' }}>
-              🌍 Loading OpenStreetMap...
-            </Text>
-            <Text style={{ fontSize: 14, color: '#6b7280', marginTop: 8 }}>
-              No API key required!
-            </Text>
-          </View>
-        )}
-      />
+      {!mapHtml ? (
+        <View style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: '#f3f4f6',
+        }}>
+          <Text style={{ fontSize: 18, color: '#be185d', fontWeight: 'bold', marginBottom: 8 }}>
+            🌍 Preparing map...
+          </Text>
+          <Text style={{ color: '#6b7280', textAlign: 'center' }}>
+            Loading OpenStreetMap
+          </Text>
+        </View>
+      ) : (
+        <WebView
+          ref={webViewRef}
+          source={{ html: mapHtml }}
+          style={{ flex: 1, zIndex: 0 }}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          startInLoadingState={true}
+          onMessage={handleMessage}
+          onError={(syntheticEvent) => {
+            const { nativeEvent } = syntheticEvent;
+            console.warn('WebView error: ', nativeEvent);
+          }}
+          onLoadEnd={() => {
+            console.log('🗺️ OpenStreetMap WebView loaded successfully!');
+          }}
+          key={mapHtml} // Force re-render when HTML changes
+          androidLayerType={Platform.OS === 'android' ? 'hardware' : undefined}
+          renderLoading={() => (
+            <View style={{
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              backgroundColor: '#f3f4f6',
+            }}>
+              <Text style={{ fontSize: 18, color: '#be185d', fontWeight: 'bold' }}>
+                🌍 Loading map...
+              </Text>
+            </View>
+          )}
+        />
+      )}
     </View>
   );
 };

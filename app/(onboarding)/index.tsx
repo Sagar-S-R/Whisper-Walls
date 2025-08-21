@@ -28,7 +28,11 @@ export default function WelcomeScreen() {
   }, []);
 
   const handleContinue = () => {
-    router.push('/(onboarding)/permissions');
+    router.push('/(onboarding)/login');
+  };
+
+  const handleRegister = () => {
+    router.push('/(onboarding)/register');
   };
 
   return (
@@ -101,7 +105,8 @@ export default function WelcomeScreen() {
             paddingHorizontal: 32,
             paddingVertical: 16,
             borderRadius: 999,
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            marginBottom: 16
           }}
           activeOpacity={0.8}
         >
@@ -109,7 +114,26 @@ export default function WelcomeScreen() {
             color: '#ffffff',
             fontSize: 18,
             fontWeight: '600'
-          }}>Begin Your Journey</Text>
+          }}>Login</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleRegister}
+          style={{
+            backgroundColor: 'transparent',
+            paddingHorizontal: 32,
+            paddingVertical: 16,
+            borderRadius: 999,
+            borderWidth: 2,
+            borderColor: '#ec4899'
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={{
+            color: '#ec4899',
+            fontSize: 18,
+            fontWeight: '600'
+          }}>Create Account</Text>
         </TouchableOpacity>
       </Animated.View>
     </LinearGradient>

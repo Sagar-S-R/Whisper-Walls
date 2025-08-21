@@ -3,30 +3,48 @@ import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSession } from '@/contexts/SessionContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { WhisperService } from '@/services/WhisperService';
 import { Whisper } from '@/types';
 
 export default function ProfileScreen() {
   const { session } = useSession();
+  const { user, isAuthenticated } = useAuth();
   const [userWhispers, setUserWhispers] = useState<Whisper[]>([]);
   const [discoveredWhispers, setDiscoveredWhispers] = useState<Whisper[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'created' | 'discovered'>('created');
+  const [stats, setStats] = useState<{ created?: number; discovered?: number; hugs?: number }>({});
 
   useEffect(() => {
     loadUserData();
-  }, []);
+  }, [isAuthenticated, user?.id, session.anonymousId]);
 
   const loadUserData = async () => {
     try {
       setLoading(true);
+      const effectiveSessionId = user?.sessionId || session.anonymousId;
+
       const [created, discovered] = await Promise.all([
-        WhisperService.getUserWhispers(session.anonymousId),
-        WhisperService.getDiscoveredWhispers(session.anonymousId),
+        WhisperService.getUserWhispers(effectiveSessionId),
+        WhisperService.getDiscoveredWhispers(effectiveSessionId),
       ]);
-      
       setUserWhispers(created);
       setDiscoveredWhispers(discovered);
+
+      if (isAuthenticated) {
+        try {
+          const profile = await WhisperService.getProfile();
+          const s = profile?.user?.stats || {};
+          setStats({
+            created: s.whispersCreated,
+            discovered: s.whispersDiscovered,
+            hugs: s.reactionsReceived,
+          });
+        } catch {}
+      } else {
+        setStats({ created: created.length, discovered: discovered.length, hugs: created.reduce((sum, w) => sum + (w.reactions?.length || 0), 0) });
+      }
     } catch (error) {
       console.error('Error loading user data:', error);
     } finally {
@@ -37,13 +55,10 @@ export default function ProfileScreen() {
   const formatTimeAgo = (date: Date) => {
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
     if (diffInHours < 1) return 'Just now';
     if (diffInHours < 24) return `${diffInHours}h ago`;
-    
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays < 7) return `${diffInDays}d ago`;
-    
     const diffInWeeks = Math.floor(diffInDays / 7);
     return `${diffInWeeks}w ago`;
   };
@@ -107,7 +122,6 @@ export default function ProfileScreen() {
           </Text>
         </View>
       </View>
-      
       <Text style={{
         fontSize: 16,
         color: '#1f2937',
@@ -116,7 +130,6 @@ export default function ProfileScreen() {
       }}>
         "{whisper.text}"
       </Text>
-      
       {whisper.whyHere && (
         <Text style={{
           fontSize: 14,
@@ -127,7 +140,6 @@ export default function ProfileScreen() {
           "{whisper.whyHere}"
         </Text>
       )}
-      
       <View style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -143,10 +155,9 @@ export default function ProfileScreen() {
             color: '#6b7280',
             marginLeft: 4
           }}>
-            {whisper.location.latitude.toFixed(4)}, {whisper.location.longitude.toFixed(4)}
+            {whisper.location?.latitude?.toFixed?.(4) || 'N/A'}, {whisper.location?.longitude?.toFixed?.(4) || 'N/A'}
           </Text>
         </View>
-        
         {!isDiscovered && (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Ionicons name="heart" size={14} color="#ec4899" />
@@ -185,7 +196,6 @@ export default function ProfileScreen() {
         }}>
           Your Journey
         </Text>
-        
         <View style={{ flexDirection: 'row' }}>
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={{
@@ -193,7 +203,7 @@ export default function ProfileScreen() {
               fontWeight: 'bold',
               color: '#ec4899'
             }}>
-              {userWhispers.length}
+              {stats.created ?? userWhispers.length}
             </Text>
             <Text style={{
               fontSize: 14,
@@ -202,20 +212,18 @@ export default function ProfileScreen() {
               Whispers Created
             </Text>
           </View>
-          
           <View style={{
             width: 1,
             backgroundColor: '#e5e7eb',
             marginHorizontal: 16
           }} />
-          
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={{
               fontSize: 24,
               fontWeight: 'bold',
               color: '#2563eb'
             }}>
-              {discoveredWhispers.length}
+              {stats.discovered ?? discoveredWhispers.length}
             </Text>
             <Text style={{
               fontSize: 14,
@@ -224,20 +232,18 @@ export default function ProfileScreen() {
               Whispers Found
             </Text>
           </View>
-          
           <View style={{
             width: 1,
             backgroundColor: '#e5e7eb',
             marginHorizontal: 16
           }} />
-          
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={{
               fontSize: 24,
               fontWeight: 'bold',
               color: '#059669'
             }}>
-              {userWhispers.reduce((sum, w) => sum + (w.reactions?.length || 0), 0)}
+              {stats.hugs ?? userWhispers.reduce((sum, w) => sum + (w.reactions?.length || 0), 0)}
             </Text>
             <Text style={{
               fontSize: 14,
@@ -257,18 +263,27 @@ export default function ProfileScreen() {
       style={{ flex: 1 }}
     >
       <View style={{ paddingTop: 64, paddingBottom: 16 }}>
-        <Text style={{
-          fontSize: 24,
-          fontWeight: 'bold',
-          color: '#be185d',
-          textAlign: 'center'
-        }}>
-          Your Whispers
-        </Text>
+        <View style={{ alignItems: 'center', paddingHorizontal: 16 }}>
+          <Text style={{
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: '#be185d'
+          }}>
+            Your Whispers
+          </Text>
+        </View>
+        {user && (
+          <Text style={{
+            fontSize: 16,
+            color: '#6b7280',
+            textAlign: 'center',
+            marginTop: 8
+          }}>
+            Welcome back, {user.displayName || user.username}!
+          </Text>
+        )}
       </View>
-
       {renderStats()}
-
       {/* Tab Navigation */}
       <View style={{ flexDirection: 'row', marginHorizontal: 16, marginBottom: 16 }}>
         <TouchableOpacity
@@ -289,7 +304,6 @@ export default function ProfileScreen() {
             Created ({userWhispers.length})
           </Text>
         </TouchableOpacity>
-        
         <TouchableOpacity
           onPress={() => setActiveTab('discovered')}
           style={{
@@ -309,7 +323,6 @@ export default function ProfileScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-
       {/* Content */}
       <ScrollView 
         style={{ flex: 1, paddingHorizontal: 16 }}
@@ -374,7 +387,6 @@ export default function ProfileScreen() {
             </View>
           )
         )}
-        
         <View style={{ height: 80 }} />
       </ScrollView>
     </LinearGradient>

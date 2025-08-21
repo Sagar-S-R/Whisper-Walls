@@ -1,9 +1,20 @@
 import { Whisper, CreateWhisperData } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL } from '@/config/api';
 
-// Use environment variable or fallback to local IP for development
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.203.12.246:3000/api';
+console.log('[WhisperService] Using API_BASE_URL =', API_BASE_URL);
+
 const MOCK_DATA_KEY = 'whisper_walls_mock_data';
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const token = await AsyncStorage.getItem('whisper_token');
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
+  } catch {}
+  return {};
+}
 
 class WhisperServiceClass {
   private mockWhispers: Whisper[] = [];
@@ -36,70 +47,154 @@ class WhisperServiceClass {
     }
   }
 
+  // Normalize whisper coming from API (GeoJSON Point -> { latitude, longitude })
+  private normalizeWhisper(raw: any): Whisper {
+    let latitude: number | undefined;
+    let longitude: number | undefined;
+
+    if (raw?.location?.type === 'Point' && Array.isArray(raw.location.coordinates)) {
+      // GeoJSON is [lng, lat]
+      longitude = raw.location.coordinates[0];
+      latitude = raw.location.coordinates[1];
+    } else if (raw?.location && typeof raw.location.latitude === 'number' && typeof raw.location.longitude === 'number') {
+      latitude = raw.location.latitude;
+      longitude = raw.location.longitude;
+    }
+
+    return {
+      _id: String(raw._id),
+      text: raw.text,
+      tone: raw.tone,
+      location: {
+        latitude: latitude as any,
+        longitude: longitude as any,
+      },
+      whyHere: raw.whyHere,
+      sessionId: raw.sessionId,
+      createdAt: raw.createdAt,
+      reactions: raw.reactions,
+      discoveredBy: raw.discoveredBy,
+      unlockConditions: raw.unlockConditions,
+    };
+  }
+
   async createWhisper(whisperData: CreateWhisperData): Promise<Whisper> {
     try {
-      const response = await fetch(`${API_BASE_URL}/whispers`, {
+      // Log the target URL for easier debugging when requests fail
+      const targetUrl = `${API_BASE_URL}/whispers`;
+      console.log('[WhisperService] POST ->', targetUrl, whisperData);
+
+      const response = await fetch(targetUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(await getAuthHeaders()),
         },
         body: JSON.stringify(whisperData),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create whisper');
+        const text = await response.text().catch(() => '');
+        throw new Error(`Failed to create whisper: ${response.status} ${text}`);
       }
 
-      return await response.json();
+      const raw = await response.json();
+      return this.normalizeWhisper(raw);
     } catch (error) {
-      console.log('Using mock data for create whisper');
-      // For development, return mock data
-      return this.createMockWhisper(whisperData);
+      const errAny: any = error;
+      console.error('[WhisperService] createWhisper error:', errAny && (errAny.message || errAny));
+      
+      // Optional fallback to mock data for local/offline development
+      if (process.env.EXPO_USE_MOCK_DATA === '1') {
+        console.log('[WhisperService] Using mock data for create whisper (EXPO_USE_MOCK_DATA=1)');
+        return this.createMockWhisper(whisperData);
+      }
+
+      // Re-throw so callers (UI) can detect and show errors
+      throw error;
     }
   }
 
   async getNearbyWhispers(latitude: number, longitude: number, radius: number): Promise<Whisper[]> {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/whispers/nearby?lat=${latitude}&lng=${longitude}&radius=${radius}`
-      );
+      const targetUrl = `${API_BASE_URL}/whispers/nearby?lat=${latitude}&lng=${longitude}&radius=${radius}`;
+      
+      const headers = await getAuthHeaders();
+      
+      const response = await fetch(targetUrl, { headers });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch nearby whispers');
+        const text = await response.text().catch(() => '');
+        throw new Error(`Failed to fetch nearby whispers: ${response.status} ${text}`);
       }
 
-      return await response.json();
+      const raws = await response.json();
+      const whispers = Array.isArray(raws) ? raws.map(w => this.normalizeWhisper(w)) : [];
+      return whispers;
     } catch (error) {
-      console.log('Using mock data for nearby whispers');
-      // For development, return mock data
-      return this.getMockWhispers(latitude, longitude);
+      const errAny: any = error;
+      console.error('[WhisperService] getNearbyWhispers error:', errAny && (errAny.message || errAny));
+      
+      // Optional fallback to mock data for local/offline development
+      if (process.env.EXPO_USE_MOCK_DATA === '1') {
+        return this.getMockWhispers(latitude, longitude);
+      }
+      
+      // For now, return empty array instead of mock data so we can see the real error
+      return [];
     }
   }
 
   async getUserWhispers(sessionId: string): Promise<Whisper[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/whispers/user/${sessionId}`);
+      const targetUrl = `${API_BASE_URL}/whispers/user/${sessionId}`;
+      console.log('[WhisperService] GET user whispers ->', targetUrl);
+      
+      const response = await fetch(targetUrl, { headers: { ...(await getAuthHeaders()) } });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch user whispers');
+        const text = await response.text().catch(() => '');
+        throw new Error(`Failed to fetch user whispers: ${response.status} ${text}`);
       }
 
-      return await response.json();
+      const raws = await response.json();
+      const whispers = Array.isArray(raws) ? raws.map(w => this.normalizeWhisper(w)) : [];
+      console.log('[WhisperService] Found', whispers.length, 'user whispers');
+      return whispers;
     } catch (error) {
-      console.log('Using mock data for user whispers');
-      return this.mockWhispers.filter(w => w.sessionId === sessionId);
+      const errAny: any = error;
+      console.error('[WhisperService] getUserWhispers error:', errAny && (errAny.message || errAny));
+      
+      if (process.env.EXPO_USE_MOCK_DATA === '1') {
+        console.log('[WhisperService] Using mock data for user whispers (EXPO_USE_MOCK_DATA=1)');
+        return this.mockWhispers.filter(w => w.sessionId === sessionId);
+      }
+      
+      console.log('[WhisperService] Returning empty array due to fetch error');
+      return [];
     }
+  }
+
+  async getProfile(): Promise<any> {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/auth/profile`, { headers });
+    if (!response.ok) {
+      const t = await response.text().catch(() => '');
+      throw new Error(`Failed to fetch profile: ${response.status} ${t}`);
+    }
+    return await response.json();
   }
 
   async getDiscoveredWhispers(sessionId: string): Promise<Whisper[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/whispers/discovered/${sessionId}`);
+      const response = await fetch(`${API_BASE_URL}/whispers/discovered/${sessionId}`, { headers: { ...(await getAuthHeaders()) } });
 
       if (!response.ok) {
         throw new Error('Failed to fetch discovered whispers');
       }
 
-      return await response.json();
+      const raws = await response.json();
+      return Array.isArray(raws) ? raws.map(w => this.normalizeWhisper(w)) : [];
     } catch (error) {
       console.log('Using mock data for discovered whispers');
       return this.mockWhispers.filter(w => w.discoveredBy?.includes(sessionId));
@@ -112,6 +207,7 @@ class WhisperServiceClass {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(await getAuthHeaders()),
         },
         body: JSON.stringify({ sessionId }),
       });
@@ -131,6 +227,7 @@ class WhisperServiceClass {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(await getAuthHeaders()),
         },
         body: JSON.stringify({ sessionId, type }),
       });
