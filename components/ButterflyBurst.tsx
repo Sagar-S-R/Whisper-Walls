@@ -8,10 +8,12 @@ interface ButterflyBurstProps {
   size: number;
   source: any;
   loop?: boolean;
+  rotation?: number;
+  opacity?: number;
   onAnimationFinish?: () => void;
 }
 
-export const ButterflyBurst: React.FC<ButterflyBurstProps> = ({ top, left, size, source, loop = false, onAnimationFinish }) => {
+export const ButterflyBurst: React.FC<ButterflyBurstProps> = ({ top, left, size, source, loop = false, rotation = 0, opacity = 1, onAnimationFinish }) => {
   const animationRef = useRef<LottieView>(null);
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export const ButterflyBurst: React.FC<ButterflyBurstProps> = ({ top, left, size,
   }, []);
 
   return (
-    <View style={[styles.container, { top, left, width: size, height: size }]}>
+    <View style={[styles.container, { top, left, width: size, height: size, transform: [{ rotate: `${rotation}deg` }], opacity }]}>
       <LottieView
         ref={animationRef}
         source={source}

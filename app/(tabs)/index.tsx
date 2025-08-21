@@ -23,6 +23,8 @@ interface Animation {
   size: number;
   source: any;
   loop?: boolean;
+  rotation?: number;
+  opacity?: number;
 }
 
 export default function DiscoverScreen() {
@@ -49,7 +51,7 @@ export default function DiscoverScreen() {
 
     // Play butterfly2 every 30 seconds in the center of the screen
     const interval = setInterval(() => {
-      const newSize = 450;
+      const newSize = 900;
       const top = height / 2 - newSize / 2;
       const left = width / 2 - newSize / 2;
 
@@ -62,6 +64,8 @@ export default function DiscoverScreen() {
           size: newSize,
           source: require('../../assets/animations/butterfly2.json'),
           loop: false,
+          rotation: 90,
+          opacity: 0.5,
         },
       ]);
     }, 30000);
@@ -287,6 +291,8 @@ export default function DiscoverScreen() {
           size={anim.size}
           source={anim.source}
           loop={anim.loop}
+          rotation={anim.rotation}
+          opacity={anim.opacity}
           onAnimationFinish={!anim.loop ? () => handleAnimationFinish(anim.id) : undefined}
         />
       ))}
