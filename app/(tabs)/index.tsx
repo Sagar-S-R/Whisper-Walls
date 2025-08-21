@@ -8,26 +8,12 @@ import { useLocation } from '@/contexts/LocationContext';
 import { WhisperService } from '@/services/WhisperService';
 import { WhisperModal } from '@/components/WhisperModal';
 import { FloatingActionButton } from '@/components/FloatingActionButton';
-import { MapViewNative } from '@/components/MapViewNative';
-import { OpenStreetMapView } from '@/components/OpenStreetMapView';
-import { SimpleMapView } from '@/components/SimpleMapView';
+import { SmartMapView } from '@/components/SmartMapView';
 import Animated, { useSharedValue, withSpring } from 'react-native-reanimated';
 import { Whisper } from '@/types';
 import MapView, { MapPressEvent } from 'react-native-maps';
-import { ButterflyBurst } from '@/components/ButterflyBurst';
 
 const { width, height } = Dimensions.get('window');
-
-interface Animation {
-  id: string;
-  top: number;
-  left: number;
-  size: number;
-  source: any;
-  loop?: boolean;
-  rotation?: number;
-  opacity?: number;
-}
 
 export default function DiscoverScreen() {
   const { session } = useSession();
@@ -42,7 +28,6 @@ export default function DiscoverScreen() {
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   });
-  const [animations, setAnimations] = useState<Animation[]>([]);
   
   const mapRef = useRef<any>(null);
   const fabScale = useSharedValue(1);
@@ -50,29 +35,6 @@ export default function DiscoverScreen() {
   useEffect(() => {
     initializeMap();
     loadNearbyWhispers();
-
-    // Play butterfly2 every 30 seconds in the center of the screen
-    const interval = setInterval(() => {
-      const newSize = 900;
-      const top = height / 2 - newSize / 2;
-      const left = width / 2 - newSize / 2;
-
-      setAnimations((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString() + Math.random(),
-          top,
-          left,
-          size: newSize,
-          source: require('../../assets/animations/butterfly2.json'),
-          loop: false,
-          rotation: 90,
-          opacity: 0.5,
-        },
-      ]);
-    }, 30000);
-
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -170,50 +132,20 @@ export default function DiscoverScreen() {
     fabScale.value = withSpring(breakupMode ? 1 : 0.9);
   };
 
-  const handleLongPress = async (event: MapPressEvent) => {
-    const { latitude, longitude } = event.nativeEvent.coordinate;
-    if (mapRef.current) {
-      const point = await mapRef.current.pointForCoordinate({ latitude, longitude });
-      setAnimations((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString() + Math.random(),
-          top: point.y - 100, // Adjust for animation size
-          left: point.x - 100,
-          size: 200,
-          source: require('../../assets/animations/butterfly2.json'),
-        },
-      ]);
-    }
-  };
-
-  const handleAnimationFinish = (id: string) => {
-    setTimeout(() => {
-      setAnimations((prev) => prev.filter((anim) => anim.id !== id));
-    }, 3000);
-  };
-
-  const latLngToScreen = (lat: number, lng: number) => {
-    // This is a mock function. In a real app, you would use
-    // mapRef.current.pointForCoordinate({ latitude: lat, longitude: lng })
-    // to get the screen coordinates.
-    return {
-      top: height / 2 - 100, // Center of the screen for demo
-      left: width / 2 - 100,
-    };
-  };
-
   return (
     <View style={{ flex: 1 }}>
       <LinearGradient
         colors={breakupMode ? ['#6b7280', '#374151'] as any : getTimeBasedColors() as any}
         style={{ flex: 1 }}
       >
-        <OpenStreetMapView
+        <SmartMapView
+          region={region}
+          mapRef={mapRef}
+          onRegionChangeComplete={setRegion}
+          breakupMode={breakupMode}
           location={location}
           whispers={whispers}
           onMarkerPress={handleMarkerPress}
-          breakupMode={breakupMode}
         />
 
         {/* Header Controls */}
@@ -279,21 +211,6 @@ export default function DiscoverScreen() {
           breakupMode={breakupMode}
         />
       )}
-
-      {/* Butterfly Animations */}
-      {animations.map((anim) => (
-        <ButterflyBurst
-          key={anim.id}
-          top={anim.top}
-          left={anim.left}
-          size={anim.size}
-          source={anim.source}
-          loop={anim.loop}
-          rotation={anim.rotation}
-          opacity={anim.opacity}
-          onAnimationFinish={!anim.loop ? () => handleAnimationFinish(anim.id) : undefined}
-        />
-      ))}
     </View>
   );
 }
