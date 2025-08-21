@@ -14,7 +14,7 @@ export default function ProfileScreen() {
   const [discoveredWhispers, setDiscoveredWhispers] = useState<Whisper[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'created' | 'discovered'>('created');
-  const [stats, setStats] = useState<{ created?: number; discovered?: number; hugs?: number }>({});
+  const [stats, setStats] = useState<{ created?: number; discovered?: number; likesReceived?: number }>({});
 
   useEffect(() => {
     loadUserData();
@@ -23,27 +23,44 @@ export default function ProfileScreen() {
   const loadUserData = async () => {
     try {
       setLoading(true);
-      const effectiveSessionId = user?.sessionId || session.anonymousId;
+      const effectiveSessionId = user?.id || session.anonymousId;
 
       const [created, discovered] = await Promise.all([
         WhisperService.getUserWhispers(effectiveSessionId),
         WhisperService.getDiscoveredWhispers(effectiveSessionId),
       ]);
+      
       setUserWhispers(created);
       setDiscoveredWhispers(discovered);
+
+      // Calculate total likes received on user's whispers
+      const totalLikes = created.reduce((sum, whisper) => {
+        return sum + (whisper.reactions?.length || 0);
+      }, 0);
 
       if (isAuthenticated) {
         try {
           const profile = await WhisperService.getProfile();
           const s = profile?.user?.stats || {};
           setStats({
-            created: s.whispersCreated,
-            discovered: s.whispersDiscovered,
-            hugs: s.reactionsReceived,
+            created: s.whispersCreated || created.length,
+            discovered: s.whispersDiscovered || discovered.length,
+            likesReceived: s.likesReceived || totalLikes,
           });
-        } catch {}
+        } catch {
+          // Fallback to local calculation if profile fetch fails
+          setStats({ 
+            created: created.length, 
+            discovered: discovered.length, 
+            likesReceived: totalLikes 
+          });
+        }
       } else {
-        setStats({ created: created.length, discovered: discovered.length, hugs: created.reduce((sum, w) => sum + (w.reactions?.length || 0), 0) });
+        setStats({ 
+          created: created.length, 
+          discovered: discovered.length, 
+          likesReceived: totalLikes 
+        });
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -166,7 +183,7 @@ export default function ProfileScreen() {
               color: '#6b7280',
               marginLeft: 4
             }}>
-              {whisper.reactions?.length || 0} hugs
+              {whisper.reactions?.length || 0} likes
             </Text>
           </View>
         )}
@@ -243,13 +260,13 @@ export default function ProfileScreen() {
               fontWeight: 'bold',
               color: '#059669'
             }}>
-              {stats.hugs ?? userWhispers.reduce((sum, w) => sum + (w.reactions?.length || 0), 0)}
+              {stats.likesReceived ?? userWhispers.reduce((sum, w) => sum + (w.reactions?.length || 0), 0)}
             </Text>
             <Text style={{
               fontSize: 14,
               color: '#4b5563'
             }}>
-              Hugs Received
+              Likes Received
             </Text>
           </View>
         </View>
@@ -284,6 +301,7 @@ export default function ProfileScreen() {
         )}
       </View>
       {renderStats()}
+      
       {/* Tab Navigation */}
       <View style={{ flexDirection: 'row', marginHorizontal: 16, marginBottom: 16 }}>
         <TouchableOpacity
@@ -323,9 +341,11 @@ export default function ProfileScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
       {/* Content */}
       <ScrollView 
         style={{ flex: 1, paddingHorizontal: 16 }}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={loadUserData} />
         }

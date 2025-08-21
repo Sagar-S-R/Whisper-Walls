@@ -93,6 +93,8 @@ const whisperSchema = new mongoose.Schema({
   lng: { type: Number },
   whyHere: { type: String, maxLength: 150 },
   sessionId: { type: String, required: true },
+  // Store creator's user ID if they're authenticated
+  creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reactions: [{
     type: { type: String, enum: ['hug'], default: 'hug' },
     sessionId: String,
@@ -137,12 +139,12 @@ const userSchema = new mongoose.Schema({
   // Session management for anonymous posting
   currentSessionId: { type: String },
   
-  // Statistics
+  // Statistics - Updated to use likesReceived instead of reactionsReceived
   stats: {
     whispersCreated: { type: Number, default: 0 },
     whispersDiscovered: { type: Number, default: 0 },
     reactionsGiven: { type: Number, default: 0 },
-    reactionsReceived: { type: Number, default: 0 }
+    likesReceived: { type: Number, default: 0 } // Changed from reactionsReceived
   },
   
   createdAt: { type: Date, default: Date.now },
@@ -185,6 +187,30 @@ const optionalAuth = (req, res, next) => {
     });
   }
   next();
+};
+
+// Helper function to update user's likes received count
+const updateUserLikesReceived = async (userId) => {
+  try {
+    if (!userId) return;
+    
+    // Get all whispers created by this user
+    const userWhispers = await Whisper.find({ creatorId: userId });
+    
+    // Calculate total likes received
+    const totalLikes = userWhispers.reduce((sum, whisper) => {
+      return sum + (whisper.reactions?.length || 0);
+    }, 0);
+    
+    // Update user stats
+    await User.findByIdAndUpdate(userId, {
+      'stats.likesReceived': totalLikes
+    });
+    
+    log(`Updated user ${userId} likes received: ${totalLikes}`);
+  } catch (error) {
+    log('Error updating user likes received:', error.message);
+  }
 };
 
 // Routes
@@ -319,17 +345,25 @@ app.get('/api/auth/profile', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Recalculate likes received to ensure accuracy
+    await updateUserLikesReceived(user._id);
+    
+    // Fetch updated user with new stats
+    const updatedUser = await User.findById(req.user.userId)
+      .populate('createdWhispers', 'text tone createdAt reactions')
+      .select('-passwordHash');
+
     res.json({
       user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        displayName: user.displayName,
-        bio: user.bio,
-        sessionId: user.currentSessionId,
-        stats: user.stats,
-        createdWhispers: user.createdWhispers,
-        createdAt: user.createdAt
+        id: updatedUser._id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        displayName: updatedUser.displayName,
+        bio: updatedUser.bio,
+        sessionId: updatedUser.currentSessionId,
+        stats: updatedUser.stats,
+        createdWhispers: updatedUser.createdWhispers,
+        createdAt: updatedUser.createdAt
       }
     });
 
@@ -376,18 +410,22 @@ app.post('/api/whispers', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid location format' });
     }
 
-    const whisper = new Whisper({
+    const whisperData = {
       text,
       tone,
-      // keep original small location field for backwards compatibility
-      // and add geo location for queries
       location: geoLocation,
       whyHere,
       sessionId,
       reactions: [],
       discoveredBy: []
-    });
+    };
 
+    // If user is authenticated, add creatorId
+    if (req.user) {
+      whisperData.creatorId = req.user.userId;
+    }
+
+    const whisper = new Whisper(whisperData);
     const savedWhisper = await whisper.save();
     
     // If user is authenticated, link whisper to their profile
@@ -407,8 +445,6 @@ app.post('/api/whispers', optionalAuth, async (req, res) => {
     }
 
     log('Whisper created:', savedWhisper._id ? savedWhisper._id.toString() : savedWhisper);
-    // Extra explicit log required for debugging frontend invokes
-    log('Whisper created in here', savedWhisper._id ? savedWhisper._id.toString() : savedWhisper);
     res.status(201).json(savedWhisper);
   } catch (error) {
     console.error('[api] Create whisper error:', error && error.message ? error.message : error);
@@ -514,11 +550,36 @@ app.get('/api/whispers/nearby', async (req, res) => {
   }
 });
 
-// Get user's whispers
-app.get('/api/whispers/user/:sessionId', async (req, res) => {
+// Get user's whispers - Updated to support both authenticated and anonymous users
+app.get('/api/whispers/user/:sessionId', optionalAuth, async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const whispers = await Whisper.find({ sessionId }).sort({ createdAt: -1 });
+    log(`GET /api/whispers/user/${sessionId}`);
+    
+    let whispers = [];
+    
+    // If user is authenticated, get whispers from their profile
+    if (req.user) {
+      try {
+        const user = await User.findById(req.user.userId).populate('createdWhispers');
+        if (user && user.createdWhispers.length > 0) {
+          whispers = user.createdWhispers.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          log(`  found ${whispers.length} whispers from authenticated user profile`);
+        } else {
+          // Fallback to sessionId lookup
+          whispers = await Whisper.find({ sessionId }).sort({ createdAt: -1 });
+          log(`  fallback: found ${whispers.length} whispers by sessionId`);
+        }
+      } catch (userError) {
+        log('  error fetching from user profile, falling back to sessionId:', userError.message);
+        whispers = await Whisper.find({ sessionId }).sort({ createdAt: -1 });
+      }
+    } else {
+      // Anonymous user - lookup by sessionId
+      whispers = await Whisper.find({ sessionId }).sort({ createdAt: -1 });
+      log(`  found ${whispers.length} whispers for anonymous user`);
+    }
+    
     res.json(whispers);
   } catch (error) {
     console.error('Get user whispers error:', error);
@@ -527,12 +588,35 @@ app.get('/api/whispers/user/:sessionId', async (req, res) => {
 });
 
 // Get discovered whispers
-app.get('/api/whispers/discovered/:sessionId', async (req, res) => {
+app.get('/api/whispers/discovered/:sessionId', optionalAuth, async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const whispers = await Whisper.find({ 
-      discoveredBy: sessionId 
-    }).sort({ createdAt: -1 });
+    log(`GET /api/whispers/discovered/${sessionId}`);
+    
+    let whispers = [];
+    
+    // If user is authenticated, get discoveries from their profile
+    if (req.user) {
+      try {
+        const user = await User.findById(req.user.userId).populate('discoveredWhispers');
+        if (user && user.discoveredWhispers.length > 0) {
+          whispers = user.discoveredWhispers.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          log(`  found ${whispers.length} discovered whispers from authenticated user profile`);
+        } else {
+          // Fallback to sessionId lookup
+          whispers = await Whisper.find({ discoveredBy: sessionId }).sort({ createdAt: -1 });
+          log(`  fallback: found ${whispers.length} discovered whispers by sessionId`);
+        }
+      } catch (userError) {
+        log('  error fetching discoveries from user profile, falling back to sessionId:', userError.message);
+        whispers = await Whisper.find({ discoveredBy: sessionId }).sort({ createdAt: -1 });
+      }
+    } else {
+      // Anonymous user - lookup by sessionId
+      whispers = await Whisper.find({ discoveredBy: sessionId }).sort({ createdAt: -1 });
+      log(`  found ${whispers.length} discovered whispers for anonymous user`);
+    }
+    
     res.json(whispers);
   } catch (error) {
     console.error('Get discovered whispers error:', error);
@@ -557,6 +641,7 @@ app.post('/api/whispers/:id/discover', optionalAuth, async (req, res) => {
       whisper.discoveredBy.push(sessionId);
       await whisper.save();
     }
+    
     // If an authenticated user is present, link discovery to their profile and increment stats
     if (req.user) {
       try {
@@ -574,6 +659,7 @@ app.post('/api/whispers/:id/discover', optionalAuth, async (req, res) => {
         log('  failed to link discovery to user:', userErr && userErr.message ? userErr.message : userErr);
       }
     }
+    
     log(`  whisper ${id} marked discovered by ${sessionId}`);
     res.json({ success: true });
   } catch (error) {
@@ -582,8 +668,8 @@ app.post('/api/whispers/:id/discover', optionalAuth, async (req, res) => {
   }
 });
 
-// Add reaction to whisper
-app.post('/api/whispers/:id/react', async (req, res) => {
+// Add reaction to whisper - Updated to recalculate likes received
+app.post('/api/whispers/:id/react', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { sessionId, type = 'hug' } = req.body;
@@ -604,6 +690,12 @@ app.post('/api/whispers/:id/react', async (req, res) => {
     
     whisper.reactions.push({ type, sessionId });
     await whisper.save();
+    
+    // Update the creator's likes received count if they're an authenticated user
+    if (whisper.creatorId) {
+      await updateUserLikesReceived(whisper.creatorId);
+    }
+    
     log(`  reaction added to whisper ${id} by ${sessionId}`);
     res.json({ success: true });
   } catch (error) {
