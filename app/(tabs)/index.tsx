@@ -9,6 +9,8 @@ import { WhisperService } from '@/services/WhisperService';
 import { WhisperModal } from '@/components/WhisperModal';
 import { FloatingActionButton } from '@/components/FloatingActionButton';
 import { MapViewNative } from '@/components/MapViewNative';
+import { OpenStreetMapView } from '@/components/OpenStreetMapView';
+import { SimpleMapView } from '@/components/SimpleMapView';
 import Animated, { useSharedValue, withSpring } from 'react-native-reanimated';
 import { Whisper } from '@/types';
 import MapView, { MapPressEvent } from 'react-native-maps';
@@ -207,15 +209,11 @@ export default function DiscoverScreen() {
         colors={breakupMode ? ['#6b7280', '#374151'] as any : getTimeBasedColors() as any}
         style={{ flex: 1 }}
       >
-        <MapViewNative
-          region={region}
-          mapRef={mapRef}
-          onRegionChangeComplete={setRegion}
-          breakupMode={breakupMode}
+        <OpenStreetMapView
           location={location}
           whispers={whispers}
           onMarkerPress={handleMarkerPress}
-          onLongPress={handleLongPress}
+          breakupMode={breakupMode}
         />
 
         {/* Header Controls */}
