@@ -9,7 +9,7 @@ export const API_CONFIG = {
   DEVICE: 'http://172.16.144.246:3000/api', // Your computer's IP address
   
   // For production
-  PRODUCTION: 'https://your-production-url.com/api'
+  PRODUCTION: 'https://whisper-walls.onrender.com/api'
 };
 
 // Get the appropriate API URL based on environment

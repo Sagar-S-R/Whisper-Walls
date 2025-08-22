@@ -9,6 +9,6 @@ services:
       - key: NODE_ENV
         value: production
       - key: MONGODB_URI
-        value: mongodb+srv://srs314848:D09NNXBJwouAGcmw@cluster1.bo8cq1o.mongodb.net/
+        value: mongodb+srv://srs314848:D09NNXBJwouAGcmw@cluster1.bo8cq1o.mongodb.net/whisper-walls
       - key: JWT_SECRET
         value: SX2BABY
