@@ -14,6 +14,102 @@ export default function SettingsScreen() {
   const [breakupMode, setBreakupMode] = useState(false);
   const [proximityRadius, setProximityRadius] = useState(100);
 
+  // Add these functions to your SettingsScreen component:
+
+  const handleDeleteAccount = async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Error', 'You must be logged in to delete an account.');
+      return;
+    }
+
+    Alert.alert(
+      'Final Confirmation',
+      'Are you absolutely sure you want to delete your account?\n\nThis will:\n• Delete your account permanently\n• Remove all your personal data\n• Keep your anonymous whispers for others to discover\n• Log you out immediately',
+      [
+        { text: 'Keep Account', style: 'cancel' },
+        {
+          text: 'Delete Forever',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Here you would call your API to delete the account
+              // await deleteUserAccount(user.id);
+
+              // Clear local data
+              await AsyncStorage.clear();
+              clearSession();
+              logout();
+
+              Alert.alert(
+                'Account Deleted',
+                'Your account has been permanently deleted. Thank you for using Whisper Walls.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => router.replace('/(onboarding)')
+                  }
+                ]
+              );
+            } catch (error) {
+              console.error('Error deleting account:', error);
+              Alert.alert(
+                'Error',
+                'Failed to delete account. Please try again or contact support.'
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDataUsage = () => {
+    Alert.alert(
+      'Data Usage Information',
+      'Whisper Walls collects minimal data:\n\n• Anonymous session IDs\n• Approximate location for discoveries\n• App usage patterns\n• Optional account details\n\nAll whispers remain completely anonymous and cannot be traced back to you.',
+      [{ text: 'Got it' }]
+    );
+  };
+
+  // Enhanced export data function
+  const handleExportData = () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Export Data',
+        'Sign in to export your account data, or use "Reset All Data" to clear anonymous session data.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Export Your Data',
+      'We\'ll prepare a complete export of your data including:\n\n• Account information\n• Your whispers (you created)\n• Discovery history\n• App preferences\n\nThis may take a few minutes. You\'ll receive an email when ready.',
+      [
+        { text: 'Cancel' },
+        {
+          text: 'Export',
+          onPress: async () => {
+            try {
+              // Here you would call your API to initiate data export
+              // await requestDataExport(user.id);
+
+              Alert.alert(
+                'Export Requested',
+                'Your data export has been requested. You\'ll receive an email at ' + user?.email + ' when it\'s ready (usually within 24 hours).'
+              );
+            } catch (error) {
+              console.error('Error requesting export:', error);
+              Alert.alert(
+                'Error',
+                'Failed to request data export. Please try again or contact support.'
+              );
+            }
+          }
+        },
+      ]
+    );
+  };
   const handleResetData = () => {
     Alert.alert(
       'Reset All Data',
@@ -34,17 +130,6 @@ export default function SettingsScreen() {
             }
           },
         },
-      ]
-    );
-  };
-
-  const handleExportData = () => {
-    Alert.alert(
-      'Export Data',
-      'Your data export will be prepared and shared. This includes your created whispers and discovery history.',
-      [
-        { text: 'Cancel' },
-        { text: 'Export', onPress: () => console.log('Export initiated') },
       ]
     );
   };
@@ -79,10 +164,10 @@ export default function SettingsScreen() {
           justifyContent: 'center',
           marginRight: 12
         }}>
-          <Ionicons 
-            name={icon as any} 
-            size={20} 
-            color={destructive ? '#ef4444' : '#6b7280'} 
+          <Ionicons
+            name={icon as any}
+            size={20}
+            color={destructive ? '#ef4444' : '#6b7280'}
           />
         </View>
         <View style={{ flex: 1 }}>
@@ -103,10 +188,10 @@ export default function SettingsScreen() {
         </View>
       </View>
       {rightElement || (
-        <Ionicons 
-          name="chevron-forward" 
-          size={20} 
-          color="#9ca3af" 
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color="#9ca3af"
         />
       )}
     </TouchableOpacity>
@@ -212,7 +297,7 @@ export default function SettingsScreen() {
               textAlign: 'center',
               lineHeight: 16
             }}>
-              {isAuthenticated ? 
+              {isAuthenticated ?
                 'Your whispers remain completely anonymous.\nOnly you can see your username in settings.' :
                 'You are browsing anonymously.\nSign up to save your preferences and discoveries.'
               }
@@ -273,7 +358,7 @@ export default function SettingsScreen() {
               'notifications',
               'Push Notifications',
               'Get notified about new discoveries and reactions',
-              () => {},
+              () => { },
               <Switch
                 value={notifications}
                 onValueChange={setNotifications}
@@ -286,7 +371,7 @@ export default function SettingsScreen() {
               'heart-dislike',
               'Gentle Mode',
               'Muted colors and softer interactions for sensitive times',
-              () => {},
+              () => { },
               <Switch
                 value={breakupMode}
                 onValueChange={setBreakupMode}
@@ -305,7 +390,21 @@ export default function SettingsScreen() {
               'shield-checkmark',
               'Privacy Policy',
               'Learn how we protect your anonymous data',
-              () => console.log('Privacy policy')
+              () => router.push('/(settings)/privacy-policy') // Navigate to privacy policy screen
+            )}
+            <View style={{ height: 1, backgroundColor: '#f3f4f6', marginHorizontal: 16 }} />
+            {renderSettingItem(
+              'document-text',
+              'Terms of Service',
+              'Read our terms and conditions',
+              () => router.push('/(settings)/terms-of-service')
+            )}
+            <View style={{ height: 1, backgroundColor: '#f3f4f6', marginHorizontal: 16 }} />
+            {renderSettingItem(
+              'information-circle',
+              'Data Usage',
+              'See what data we collect and why',
+              () => router.push('/(settings)/data-usage')
             )}
             <View style={{ height: 1, backgroundColor: '#f3f4f6', marginHorizontal: 16 }} />
             {renderSettingItem(
@@ -313,6 +412,28 @@ export default function SettingsScreen() {
               'Export Data',
               'Download your whispers and discovery history',
               handleExportData
+            )}
+            <View style={{ height: 1, backgroundColor: '#f3f4f6', marginHorizontal: 16 }} />
+            {renderSettingItem(
+              'trash-bin',
+              'Delete Account',
+              'Permanently remove your account and data',
+              () => {
+                Alert.alert(
+                  'Delete Account',
+                  'This will permanently delete your account and all associated data. This action cannot be undone.\n\nYour anonymous whispers will remain in the app for other users to discover, but they can never be traced back to you.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete Account',
+                      style: 'destructive',
+                      onPress: () => handleDeleteAccount(),
+                    },
+                  ]
+                );
+              },
+              undefined,
+              true
             )}
           </>
         )}

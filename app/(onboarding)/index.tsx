@@ -114,7 +114,7 @@ export default function WelcomeScreen() {
             color: '#ffffff',
             fontSize: 18,
             fontWeight: '600'
-          }}>Login</Text>
+          }}>         Login         </Text>
         </TouchableOpacity>
 
         <TouchableOpacity

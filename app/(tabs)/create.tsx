@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSession } from '@/contexts/SessionContext';
 import { useLocation } from '@/contexts/LocationContext';
 import { WhisperService } from '@/services/WhisperService';
@@ -20,70 +20,6 @@ import Animated, { useSharedValue, withSpring, useAnimatedStyle, withTiming } fr
 import LottieView from 'lottie-react-native';
 
 const { width, height } = Dimensions.get('window');
-
-// Inspirational quotes for each emotion
-const emotionQuotes = {
-  'Joy': [
-    "Happiness is not something ready made. It comes from your own actions.",
-    "The most wasted of days is one without laughter.",
-    "Joy is the simplest form of gratitude.",
-    "Every moment is a fresh beginning.",
-    "Smile, it's the key that fits the lock of everybody's heart.",
-    "Happiness blooms from within.",
-    "Choose joy, spread light.",
-    "Life is beautiful when you find reasons to smile.",
-    "Dancing through life with pure joy.",
-    "Celebrate every small victory."
-  ],
-  'Longing': [
-    "Distance means nothing when someone means everything.",
-    "Missing you is my heart's way of reminding me how much I love you.",
-    "The heart wants what it wants.",
-    "Some people come into our lives and leave footprints on our hearts.",
-    "Longing is the agony of the heart.",
-    "Missing someone is your heart's way of loving them.",
-    "Time stops when I think of you.",
-    "Every sunset reminds me of you.",
-    "Love knows no distance.",
-    "You're always on my mind."
-  ],
-  'Gratitude': [
-    "Gratitude turns what we have into enough.",
-    "Be thankful for small mercies.",
-    "Gratitude is the fairest blossom which springs from the soul.",
-    "In everything, give thanks.",
-    "Grateful hearts are magnets for miracles.",
-    "Appreciation is a wonderful thing.",
-    "Count blessings, not problems.",
-    "Gratitude makes ordinary moments extraordinary.",
-    "Thankful, grateful, blessed.",
-    "Every day is a gift."
-  ],
-  'Apology': [
-    "I'm sorry for the words I said when I was hurt.",
-    "Forgiveness is the key to healing.",
-    "I take full responsibility for my actions.",
-    "My heart aches for the pain I caused.",
-    "Words cannot express how truly sorry I am.",
-    "I hope you can find it in your heart to forgive me.",
-    "I'm learning from my mistakes.",
-    "Your forgiveness would mean everything to me.",
-    "I promise to do better.",
-    "Sorry isn't just a word, it's a promise to change."
-  ],
-  'Heartbreak': [
-    "Sometimes the heart sees what is invisible to the eye.",
-    "Healing takes time, and that's okay.",
-    "Broken hearts still beat.",
-    "Pain is temporary, but quitting lasts forever.",
-    "Even the darkest night will end and the sun will rise.",
-    "It's okay to not be okay.",
-    "You are stronger than you think.",
-    "This too shall pass.",
-    "Every ending is a new beginning.",
-    "Time heals all wounds."
-  ]
-};
 
 // Animation mappings for each tone
 const toneAnimations = {
@@ -194,7 +130,44 @@ export default function CreateScreen() {
     const quotes = emotionQuotes[tone as keyof typeof emotionQuotes];
     return quotes ? quotes[Math.floor(Math.random() * quotes.length)] : '';
   };
+  
   const textInputRef = useRef<TextInput>(null);
+
+  // Reset form to initial state
+  const resetForm = () => {
+    setWhisperText('');
+    setSelectedTone('');
+    setWhyHere('');
+    setStep(1);
+    setIsSubmitting(false);
+    setShowAnimation(false);
+    setShowSuccessAnimation(false);
+    setShowSuccessPopup(false);
+    setShowQuoteCard(false);
+    setCurrentQuote('');
+    slideAnim.value = 0;
+    resetAnimationStates();
+  };
+
+  // Reset animation values to initial state
+  const resetAnimationStates = () => {
+    cardOpacity.value = 0;
+    cardScale.value = 0.3;
+    cardRotation.value = -15;
+    cardTranslateX.value = width;
+    cardTranslateY.value = height * 0.3;
+    backgroundBlur.value = 0;
+    animationOpacity.value = 0;
+    animationScale.value = 0.5;
+  };
+
+  // Reset form when screen comes into focus (when navigating back to this screen)
+  useFocusEffect(
+    React.useCallback(() => {
+      // Reset form whenever this screen comes into focus
+      resetForm();
+    }, [])
+  );
 
   const handleNext = () => {
     if (step === 1 && whisperText.trim().length < 10) {
@@ -228,14 +201,11 @@ export default function CreateScreen() {
     setShowQuoteCard(false);
     backgroundBlur.value = withTiming(0, { duration: 500 });
     animationOpacity.value = withTiming(0, { duration: 500 });
-    resetAnimationStates();
     
-    // Reset form
-    setWhisperText('');
-    setSelectedTone('');
-    setWhyHere('');
-    setStep(1);
-    slideAnim.value = 0;
+    // Reset form completely
+    setTimeout(() => {
+      resetForm();
+    }, 500);
   };
 
   const showQuoteCardAnimation = () => {
@@ -280,21 +250,15 @@ export default function CreateScreen() {
               {
                 text: 'Create Another',
                 onPress: () => {
-                  backgroundBlur.value = withTiming(0, { duration: 500 });
-                  setWhisperText('');
-                  setSelectedTone('');
-                  setWhyHere('');
-                  setStep(1);
-                  slideAnim.value = 0;
-                  resetAnimationStates();
+                  closeSuccessPopup();
                 }
               },
               {
                 text: 'Explore Map',
                 onPress: () => {
                   backgroundBlur.value = withTiming(0, { duration: 500 });
-                  resetAnimationStates();
-                                        router.replace('/');
+                  resetForm();
+                  router.replace('/');
                 }
               }
             ]
@@ -302,17 +266,6 @@ export default function CreateScreen() {
         }, 500);
       }, 3000); // Show success animation for 3 seconds
     }, 800); // Wait for card to fade out
-  };
-
-  const resetAnimationStates = () => {
-    cardOpacity.value = 0;
-    cardScale.value = 0.3;
-    cardRotation.value = -15;
-    cardTranslateX.value = width;
-    cardTranslateY.value = height * 0.3;
-    backgroundBlur.value = 0;
-    animationOpacity.value = 0;
-    animationScale.value = 0.5;
   };
 
   const showCreateAnimation = () => {
@@ -369,7 +322,7 @@ export default function CreateScreen() {
 
         // Hide quote card and show success animation
         hideQuoteCard();
-        
+                
       } catch (error) {
         console.error('Error creating whisper:', error);
         // Reset animations on error

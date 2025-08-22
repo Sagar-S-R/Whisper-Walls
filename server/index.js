@@ -550,6 +550,34 @@ app.get('/api/whispers/nearby', async (req, res) => {
   }
 });
 
+// index.js (Backend)
+
+// Delete user account
+app.delete('/api/user/:id', optionalAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    log(`DELETE /api/user/${id}`);
+
+    // Verify user exists
+    const user = await User.findById(id);
+    if (!user) {
+      log(`  user ${id} not found`);
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Delete user-related data (excluding anonymous whispers)
+    await User.deleteOne({ _id: id });
+    await db.collection('user_preferences').deleteMany({ user_id: id });
+    await db.collection('user_history').deleteMany({ user_id: id });
+
+    log(`  user ${id} deleted successfully`);
+    res.status(200).json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get user's whispers - Updated to support both authenticated and anonymous users
 app.get('/api/whispers/user/:sessionId', optionalAuth, async (req, res) => {
   try {
