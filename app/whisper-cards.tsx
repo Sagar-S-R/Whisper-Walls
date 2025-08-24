@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Dimensions, Alert, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -35,71 +35,29 @@ export default function WhisperCardsPage() {
         location.longitude,
         5000 // 5km radius
       );
+      if (Platform.OS === 'web') {
+        console.log('[DEBUG][web] whisper-cards nearbyWhispers:', nearbyWhispers.map(w => ({ id: w._id, sessionId: w.sessionId, location: w.location })));
+      }
       
       // Validate whisper data structure
       const validWhispers = nearbyWhispers.filter(whisper => {
         if (!whisper._id || !whisper.text || !whisper.location) {
           return false;
         }
+
+        // Exclude demo/test whispers only on mobile — show them in web preview for debugging
+        if (Platform.OS !== 'web') {
+          if (String(whisper._id || '').startsWith('mock_')) return false;
+          if (String(whisper.sessionId || '').startsWith('test_session_')) return false;
+        }
+
         return true;
       });
       
-      if (validWhispers.length === 0) {
-        // Show test whispers if no real ones
-        const testWhispers: Whisper[] = [
-          {
-            _id: 'test1',
-            text: 'This is a test whisper to verify the cards are working!',
-            tone: 'Joy',
-            location: {
-              latitude: location.latitude + 0.001,
-              longitude: location.longitude + 0.001,
-            },
-            whyHere: 'Testing the cards functionality',
-            sessionId: 'test_session',
-            createdAt: new Date().toISOString(),
-            reactions: [],
-            discoveredBy: [],
-          },
-          {
-            _id: 'test2',
-            text: 'Another test whisper - swipe to see more!',
-            tone: 'Gratitude',
-            location: {
-              latitude: location.latitude - 0.001,
-              longitude: location.longitude - 0.001,
-            },
-            whyHere: 'Testing the cards navigation',
-            sessionId: 'test_session',
-            createdAt: new Date().toISOString(),
-            reactions: [],
-            discoveredBy: [],
-          }
-        ];
-        setWhispers(testWhispers);
-      } else {
-        setWhispers(validWhispers);
-      }
+  setWhispers(validWhispers);
     } catch (error) {
-      console.error('Error loading whispers:', error);
-      // Show test whispers on error
-      const testWhispers: Whisper[] = [
-        {
-          _id: 'error_test1',
-          text: 'Test whisper (API error) - swipe to see more!',
-          tone: 'Joy',
-          location: {
-            latitude: location.latitude + 0.001,
-            longitude: location.longitude + 0.001,
-          },
-          whyHere: 'Testing the cards functionality',
-          sessionId: 'test_session',
-          createdAt: new Date().toISOString(),
-          reactions: [],
-          discoveredBy: [],
-        }
-      ];
-      setWhispers(testWhispers);
+  if (__DEV__) console.error('Error loading whispers:', error);
+  setWhispers([]);
     } finally {
       setLoading(false);
     }
@@ -107,30 +65,33 @@ export default function WhisperCardsPage() {
 
   const handleLike = async (whisper: Whisper) => {
     try {
-      await WhisperService.addReaction(whisper._id, 'like', session?.id || 'anonymous');
-      
+      const effectiveSessionId = session.anonymousId;
+      // addReaction expects (whisperId, sessionId, type)
+      await WhisperService.addReaction(whisper._id, effectiveSessionId, 'hug');
+
       // Update local state
       setWhispers(prev => prev.map(w => {
         if (w._id === whisper._id) {
-          const existingReaction = w.reactions.find(r => r.sessionId === (session?.id || 'anonymous'));
+          const reactions = w.reactions || [];
+          const existingReaction = reactions.find(r => r.sessionId === effectiveSessionId);
           if (existingReaction) {
             // Remove like if already liked
             return {
               ...w,
-              reactions: w.reactions.filter(r => r.sessionId !== (session?.id || 'anonymous'))
+              reactions: reactions.filter(r => r.sessionId !== effectiveSessionId)
             };
           } else {
-            // Add like
+            // Add like (stored as 'hug' in backend for now)
             return {
               ...w,
-              reactions: [...w.reactions, { type: 'like', sessionId: session?.id || 'anonymous' }]
+              reactions: [...reactions, { type: 'hug', sessionId: effectiveSessionId, createdAt: new Date().toISOString() }]
             };
           }
         }
         return w;
       }));
     } catch (error) {
-      console.error('Error adding reaction:', error);
+      if (__DEV__) console.error('Error adding reaction:', error);
     }
   };
 
@@ -196,7 +157,7 @@ export default function WhisperCardsPage() {
   }
 
   const currentWhisper = whispers[currentIndex];
-  const isLiked = currentWhisper.reactions.some(r => r.sessionId === (session?.id || 'anonymous'));
+  const isLiked = (currentWhisper.reactions || []).some(r => r.sessionId === session.anonymousId);
 
   return (
     <View style={{ flex: 1 }}>
@@ -330,7 +291,7 @@ export default function WhisperCardsPage() {
                   color: isLiked ? "white" : "#6b7280",
                   fontWeight: '600',
                 }}>
-                  {currentWhisper.reactions.length}
+                  {(currentWhisper.reactions || []).length}
                 </Text>
               </TouchableOpacity>
 
@@ -430,6 +391,6 @@ function getToneColor(tone: string): string {
     Gratitude: '#f59e0b',
     Apology: '#8b5cf6',
     Heartbreak: '#ef4444',
-  };
-  return colors[tone] || '#6b7280';
+  } as const;
+  return colors[tone as keyof typeof colors] || '#6b7280';
 }

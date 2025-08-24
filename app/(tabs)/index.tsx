@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSession } from '@/contexts/SessionContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from '@/contexts/LocationContext';
 import { WhisperService } from '@/services/WhisperService';
 import { WhisperModal } from '@/components/WhisperModal';
@@ -20,12 +21,14 @@ const { width, height } = Dimensions.get('window');
 
 export default function DiscoverScreen() {
   const { session } = useSession();
+  const { user } = useAuth();
   const { location, requestLocation } = useLocation();
   const [whispers, setWhispers] = useState<Whisper[]>([]);
   const [selectedWhisper, setSelectedWhisper] = useState<Whisper | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [breakupMode, setBreakupMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [region, setRegion] = useState<any>({
     latitude: 37.78825,
     longitude: -122.4324,
@@ -65,9 +68,8 @@ export default function DiscoverScreen() {
   );
 
   const initializeMap = async () => {
-    if (Platform.OS !== 'web') {
-      await requestLocation();
-    }
+    // Always request location; the LocationProvider handles web/mobile specifics.
+    await requestLocation();
   };
 
   const loadNearbyWhispers = async () => {
@@ -82,71 +84,39 @@ export default function DiscoverScreen() {
         location.longitude,
         5000 // 5km radius
       );
-      
+
+      // Web-only debug: log raw nearby whispers so we can see what's being returned
+      if (Platform.OS === 'web') {
+        try {
+          console.log('[DEBUG][web] nearbyWhispers (raw):', nearbyWhispers);
+          console.log('[DEBUG][web] nearbyWhispers ids/session/location:', nearbyWhispers.map(w => ({ id: w._id, sessionId: w.sessionId, location: w.location })));
+        } catch (e) {
+          console.log('[DEBUG][web] failed to stringify nearbyWhispers', e);
+        }
+      }
+
       // Validate whisper data structure
       const validWhispers = nearbyWhispers.filter(whisper => {
         if (!whisper._id || !whisper.text || !whisper.location) {
           return false;
         }
+
+        // Apply demo/test filter only on non-web platforms (keep web preview showing everything)
+        if (Platform.OS !== 'web') {
+          if (String(whisper._id || '').startsWith('mock_')) return false;
+          if (String(whisper.sessionId || '').startsWith('test_session_')) return false;
+        }
+
         return true;
       });
-      
-      if (validWhispers.length === 0) {
-        // Show test whispers if no real ones
-        const testWhispers: Whisper[] = [
-          {
-            _id: 'test1',
-            text: 'This is a test whisper to verify the map is working!',
-            tone: 'Joy',
-            location: {
-              latitude: location.latitude + 0.001,
-              longitude: location.longitude + 0.001,
-            },
-            whyHere: 'Testing the map functionality',
-            sessionId: 'test_session',
-            createdAt: new Date().toISOString(),
-            reactions: [],
-            discoveredBy: [],
-          },
-          {
-            _id: 'test2',
-            text: 'Another test whisper nearby - tap to see more!',
-            tone: 'Gratitude',
-            location: {
-              latitude: location.latitude - 0.001,
-              longitude: location.longitude - 0.001,
-            },
-            whyHere: 'Testing the modal functionality',
-            sessionId: 'test_session',
-            createdAt: new Date().toISOString(),
-            reactions: [],
-            discoveredBy: [],
-          }
-        ];
-        setWhispers(testWhispers);
-      } else {
-        setWhispers(validWhispers);
-      }
+
+      // Use whatever the backend returned (empty array allowed)
+      setWhispers(validWhispers);
+      setFetchError(null);
     } catch (error) {
-      console.error('Error loading whispers:', error);
-      // Show test whispers on error
-      const testWhispers: Whisper[] = [
-        {
-          _id: 'error_test1',
-          text: 'Test whisper (API error) - tap to see more!',
-          tone: 'Joy',
-          location: {
-            latitude: location.latitude + 0.001,
-            longitude: location.longitude + 0.001,
-          },
-          whyHere: 'Testing the map functionality',
-          sessionId: 'test_session',
-          createdAt: new Date().toISOString(),
-          reactions: [],
-          discoveredBy: [],
-        }
-      ];
-      setWhispers(testWhispers);
+      if (__DEV__) console.error('Error loading whispers:', error);
+      setWhispers([]);
+      setFetchError((error && (error as any).message) ? String((error as any).message) : String(error));
     } finally {
       setLoading(false);
     }
@@ -169,10 +139,10 @@ export default function DiscoverScreen() {
     // Mark as discovered if within 50 meters
     if (distance <= 50) {
       try {
-        await WhisperService.markAsDiscovered(whisper._id, session?.id || 'anonymous');
-        console.log('Whisper marked as discovered');
+        const effectiveSessionId = user?.id || session.anonymousId;
+        await WhisperService.markAsDiscovered(whisper._id, effectiveSessionId);
       } catch (error) {
-        console.error('Error marking whisper as discovered:', error);
+        if (__DEV__) console.error('Error marking whisper as discovered:', error);
       }
     }
 
@@ -222,6 +192,24 @@ export default function DiscoverScreen() {
         colors={breakupMode ? ['#6b7280', '#374151'] as any : getTimeBasedColors() as any}
         style={{ flex: 1 }}
       >
+  {/* Note: filter out test/demo whispers so web preview doesn't surface samples */}
+  {Platform.OS === 'web' && fetchError && (
+          <View style={{
+            position: 'absolute',
+            top: 16,
+            left: 16,
+            right: 16,
+            zIndex: 999,
+            backgroundColor: '#fee2e2',
+            borderRadius: 12,
+            padding: 12,
+            borderWidth: 1,
+            borderColor: '#fca5a5'
+          }}>
+            <Text style={{ color: '#991b1b', fontWeight: '600', marginBottom: 4 }}>Network error</Text>
+            <Text style={{ color: '#7f1d1d' }}>{fetchError}</Text>
+          </View>
+        )}
         <SmartMapView
           region={region}
           mapRef={mapRef}

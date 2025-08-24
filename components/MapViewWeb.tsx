@@ -1,31 +1,38 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { Whisper } from '@/types';
 
-export const MapViewWeb: React.FC = () => {
+interface MapViewWebProps {
+  location: any;
+  whispers: Whisper[];
+  onMarkerPress: (whisper: Whisper) => void;
+  breakupMode: boolean;
+}
+
+export const MapViewWeb: React.FC<MapViewWebProps> = ({ location, whispers, onMarkerPress }) => {
   return (
-    <View style={{
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 32
-    }}>
-      <Text style={{
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#be185d',
-        textAlign: 'center',
-        marginBottom: 16
-      }}>
-        Map View Available on Mobile
-      </Text>
-      <Text style={{
-        color: '#4b5563',
-        textAlign: 'center',
-        lineHeight: 24
-      }}>
-        The interactive map with location-based whispers is available when running on iOS or Android devices.
-        For now, enjoy exploring the other features of Whisper Walls!
-      </Text>
+    <View style={{ flex: 1, padding: 16 }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#be185d', marginBottom: 8 }}>Nearby Whispers</Text>
+      <Text style={{ color: '#6b7280', marginBottom: 16 }}>The interactive map is not available in the web preview; tap a whisper to open it.</Text>
+
+      <ScrollView>
+        {whispers.map(w => (
+          <TouchableOpacity key={w._id} onPress={() => onMarkerPress(w)} style={{
+            backgroundColor: 'white',
+            padding: 12,
+            marginBottom: 12,
+            borderRadius: 10,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 4,
+            elevation: 2,
+          }}>
+            <Text style={{ fontWeight: '600', color: '#374151' }}>{w.tone}</Text>
+            <Text style={{ color: '#6b7280' }} numberOfLines={2}>{w.text}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
     </View>
   );
 };

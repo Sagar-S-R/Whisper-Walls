@@ -121,7 +121,15 @@ class WhisperServiceClass {
       
       const headers = await getAuthHeaders();
       
-      const response = await fetch(targetUrl, { headers });
+      // Prevent browser from returning a cached 304 with no response body
+      // which causes JSON parsing to fail / callers to get an empty result.
+      const response = await fetch(targetUrl, { headers, cache: 'no-store' as RequestCache });
+
+      // Some CDNs / browsers may return 304 Not Modified. Treat that as an empty
+      // result set (we intentionally avoid attempting to parse a missing body).
+      if (response.status === 304) {
+        return [];
+      }
 
       if (!response.ok) {
         const text = await response.text().catch(() => '');
@@ -133,14 +141,21 @@ class WhisperServiceClass {
       return whispers;
     } catch (error) {
       const errAny: any = error;
-      console.error('[WhisperService] getNearbyWhispers error:', errAny && (errAny.message || errAny));
-      
+      // Surface a clearer message for web (CORS/network) issues
+      const msg = errAny && (errAny.message || errAny);
+      console.error('[WhisperService] getNearbyWhispers error:', msg);
+
+      // If running in browser and this looks like a network/CORS failure, throw so UI can show a helpful message
+      if (typeof window !== 'undefined' && /Failed to fetch|NetworkError|CORS|Network request failed/i.test(String(msg))) {
+        throw new Error('Network/CORS error fetching nearby whispers. Check browser console/network and ensure the API allows CORS from this origin.');
+      }
+
       // Optional fallback to mock data for local/offline development
       if (process.env.EXPO_USE_MOCK_DATA === '1') {
         return this.getMockWhispers(latitude, longitude);
       }
-      
-      // For now, return empty array instead of mock data so we can see the real error
+
+      // Return empty array on other errors
       return [];
     }
   }
