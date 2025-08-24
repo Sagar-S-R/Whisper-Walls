@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { API_BASE_URL } from '@/config/api';
 
@@ -31,11 +32,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
+  // Storage helper that uses localStorage on web for full-page persistence
+  const storageGet = async (key: string): Promise<string | null> => {
+    try {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(key);
+      }
+      return await AsyncStorage.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const storageSet = async (key: string, value: string): Promise<void> => {
+    try {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, value);
+        return;
+      }
+      await AsyncStorage.setItem(key, value);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const storageRemove = async (key: string): Promise<void> => {
+    // Remove from both storages when possible to avoid stale values
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try { window.localStorage.removeItem(key); } catch {}
+      }
+    } catch {}
+
+    try {
+      await AsyncStorage.removeItem(key);
+    } catch {}
+  };
+
   const checkAuth = async () => {
     try {
-      const token = await AsyncStorage.getItem('whisper_token');
-      const userData = await AsyncStorage.getItem('whisper_user');
-      
+      // On web, prefer localStorage for immediate, cross-tab consistency.
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        console.log('Checking if window and localStorage are available');
+        if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+          console.log('window and localStorage are available');
+        } else {
+          console.warn('window or localStorage is not available');
+        }
+
+        const localToken = window.localStorage.getItem('whisper_token');
+        const localUser = window.localStorage.getItem('whisper_user');
+
+        if (localToken && localUser) {
+          setUser(JSON.parse(localUser));
+          setIsAuthenticated(true);
+        } else {
+          // If AsyncStorage has stale tokens (from previous runs), remove them so they don't resurrect auth on web
+          try { await AsyncStorage.removeItem('whisper_token'); } catch {}
+          try { await AsyncStorage.removeItem('whisper_user'); } catch {}
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+        return;
+      }
+
+      const token = await storageGet('whisper_token');
+      const userData = await storageGet('whisper_user');
+
       if (token && userData) {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
@@ -64,9 +127,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       
       if (res.ok && data.token && data.user) {
-        // Save token and user data
-        await AsyncStorage.setItem('whisper_token', data.token);
-        await AsyncStorage.setItem('whisper_user', JSON.stringify(data.user));
+  // Save token and user data (use platform-appropriate storage)
+  await storageSet('whisper_token', data.token);
+  await storageSet('whisper_user', JSON.stringify(data.user));
         
         setUser(data.user);
         setIsAuthenticated(true);
@@ -110,9 +173,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      // Clear stored data
-      await AsyncStorage.removeItem('whisper_token');
-      await AsyncStorage.removeItem('whisper_user');
+  // Clear stored data
+  await storageRemove('whisper_token');
+  await storageRemove('whisper_user');
+  // Also clear the anonymous session storage so web UIs don't restore it
+  await storageRemove('whisper_session');
       
       // Reset state
       setUser(null);
@@ -120,6 +185,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Navigate back to onboarding
       router.replace('/(onboarding)');
+      
+      // Notify other parts of the app (web) to clear in-memory session/state
+      console.log('Dispatching whisper_logout event');
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new Event('whisper_logout'));
+      } else {
+        console.warn('window.dispatchEvent is not available');
+      }
     } catch (error) {
       console.error('Logout error:', error);
     }

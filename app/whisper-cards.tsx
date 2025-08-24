@@ -36,7 +36,7 @@ export default function WhisperCardsPage() {
         5000 // 5km radius
       );
       if (Platform.OS === 'web') {
-        console.log('[DEBUG][web] whisper-cards nearbyWhispers:', nearbyWhispers.map(w => ({ id: w._id, sessionId: w.sessionId, location: w.location })));
+  // nearby whispers debug (web)
       }
       
       // Validate whisper data structure

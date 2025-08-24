@@ -30,15 +30,15 @@ export default function SettingsScreen() {
         {
           text: 'Delete Forever',
           style: 'destructive',
-          onPress: async () => {
+            onPress: async () => {
             try {
               // Here you would call your API to delete the account
               // await deleteUserAccount(user.id);
 
-              // Clear local data
-              await AsyncStorage.clear();
+              // Clear local data in both storages and reset session
+              await clearAllAppData();
               clearSession();
-              logout();
+              await logout();
 
               Alert.alert(
                 'Account Deleted',
@@ -121,7 +121,7 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await AsyncStorage.clear();
+              await clearAllAppData();
               clearSession();
               router.replace('/(onboarding)');
             } catch (error) {
@@ -132,6 +132,40 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  // Clear known app keys from both AsyncStorage and browser localStorage
+  const clearAllAppData = async () => {
+    const keys = [
+      'whisper_token',
+      'whisper_user',
+      'whisper_session',
+      'whisper_walls_mock_data',
+      'has_completed_onboarding'
+    ];
+
+    console.log('Clearing all app data from localStorage and AsyncStorage');
+    try {
+      console.log('Attempting to clear localStorage keys');
+      if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+        console.log('localStorage is available');
+        for (const k of keys) {
+          window.localStorage.removeItem(k);
+          console.log(`Removed ${k} from localStorage`);
+        }
+      } else {
+        console.warn('localStorage is not available');
+      }
+    } catch (e) {
+      console.error('Error clearing localStorage keys:', e);
+    }
+
+    try {
+      await AsyncStorage.multiRemove(keys);
+      console.log('Removed keys from AsyncStorage:', keys);
+    } catch (e) {
+      console.error('Error clearing AsyncStorage keys:', e);
+    }
   };
 
   const renderSettingItem = (
@@ -453,14 +487,14 @@ export default function SettingsScreen() {
               'mail',
               'Contact Support',
               'Get help or share feedback',
-              () => console.log('Contact support')
+              () => Alert.alert('Contact Support', 'Please email support@whisperwalls.example')
             )}
             <View style={{ height: 1, backgroundColor: '#f3f4f6', marginHorizontal: 16 }} />
             {renderSettingItem(
               'star',
               'Rate the App',
               'Share your experience on the App Store',
-              () => console.log('Rate app')
+              () => Alert.alert('Rate', 'Thank you for wanting to rate the app!')
             )}
           </>
         )}
@@ -484,10 +518,17 @@ export default function SettingsScreen() {
                         {
                           text: 'Logout',
                           style: 'destructive',
-                          onPress: () => {
-                            logout();
-                            router.replace('/(onboarding)');
-                          },
+                          onPress: async () => {
+                                      try {
+                                        // Ensure both storages are cleared and session reset before navigating
+                                        await clearAllAppData();
+                                        clearSession();
+                                        await logout();
+                                        router.replace('/(onboarding)');
+                                      } catch (e) {
+                                        console.error('Logout error from settings:', e);
+                                      }
+                                    },
                         },
                       ]
                     );

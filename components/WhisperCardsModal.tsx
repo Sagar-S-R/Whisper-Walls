@@ -47,27 +47,26 @@ export function WhisperCardsModal({ whispers, visible, onClose }: WhisperCardsMo
   const opacity = useSharedValue(1);
 
   // Debug logging
-  console.log('🔍 WhisperCardsModal:', { visible, whispersCount: whispers.length, whispers });
 
   // Reset index when modal opens
   React.useEffect(() => {
     if (visible) {
       setCurrentIndex(0);
-      console.log('🔄 Modal opened, reset index to 0');
+  // modal opened
     }
   }, [visible]);
 
   const goToNext = () => {
     if (currentIndex < whispers.length - 1) {
       setCurrentIndex(currentIndex + 1);
-      console.log('⬇️ Next whisper:', currentIndex + 1);
+  // next whisper
     }
   };
 
   const goToPrevious = () => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
-      console.log('⬆️ Previous whisper:', currentIndex - 1);
+  // previous whisper
     }
   };
 

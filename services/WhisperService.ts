@@ -8,6 +8,14 @@ const MOCK_DATA_KEY = 'whisper_walls_mock_data';
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
+    // Prefer browser localStorage on web for immediate consistency with logout
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const t = window.localStorage.getItem('whisper_token');
+        if (t) return { Authorization: `Bearer ${t}` };
+      } catch (e) {}
+    }
+
     const token = await AsyncStorage.getItem('whisper_token');
     if (token) {
       return { Authorization: `Bearer ${token}` };
@@ -25,7 +33,15 @@ class WhisperServiceClass {
 
   private async initializeMockData() {
     try {
-      const stored = await AsyncStorage.getItem(MOCK_DATA_KEY);
+      let stored: string | null = null;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try { stored = window.localStorage.getItem(MOCK_DATA_KEY); } catch (e) { stored = null; }
+      }
+
+      if (!stored) {
+        try { stored = await AsyncStorage.getItem(MOCK_DATA_KEY); } catch { stored = null; }
+      }
+
       if (stored) {
         this.mockWhispers = JSON.parse(stored);
       } else {
@@ -41,7 +57,11 @@ class WhisperServiceClass {
 
   private async saveMockData() {
     try {
-      await AsyncStorage.setItem(MOCK_DATA_KEY, JSON.stringify(this.mockWhispers));
+      const val = JSON.stringify(this.mockWhispers);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try { window.localStorage.setItem(MOCK_DATA_KEY, val); return; } catch (e) {}
+      }
+      await AsyncStorage.setItem(MOCK_DATA_KEY, val);
     } catch (error) {
       console.error('Error saving mock data:', error);
     }

@@ -38,7 +38,7 @@ export const OpenStreetMapView: React.FC<OpenStreetMapProps> = ({
     const centerLat = location?.latitude || 37.78825;
     const centerLng = location?.longitude || -122.4324;
     
-    console.log('🗺️ Generating map with coordinates:', { centerLat, centerLng, hasLocation: !!location });
+  // generating map with coordinates
     
     const whisperMarkers = whispers.map((whisper, index) => {
       const color = breakupMode ? '#9ca3af' : colors[whisper.tone];
@@ -118,13 +118,8 @@ export const OpenStreetMapView: React.FC<OpenStreetMapProps> = ({
 
   // Update map HTML whenever whispers or location changes
   useEffect(() => {
-    const newMapHtml = generateMapHTML();
-    console.log('🗺️ Generated map HTML with center:', {
-      lat: location?.latitude || 37.78825,
-      lng: location?.longitude || -122.4324,
-      whispersCount: whispers.length
-    });
-    setMapHtml(newMapHtml);
+  const newMapHtml = generateMapHTML();
+  setMapHtml(newMapHtml);
   }, [whispers, location, breakupMode]);
 
   const handleMessage = (event: any) => {
@@ -137,7 +132,7 @@ export const OpenStreetMapView: React.FC<OpenStreetMapProps> = ({
         }
       }
     } catch (error) {
-      console.log('Error parsing message:', error);
+  // error parsing message
     }
   };
 
@@ -171,7 +166,7 @@ export const OpenStreetMapView: React.FC<OpenStreetMapProps> = ({
             console.warn('WebView error: ', nativeEvent);
           }}
           onLoadEnd={() => {
-            console.log('🗺️ OpenStreetMap WebView loaded successfully!');
+            // OpenStreetMap WebView loaded
           }}
           key={mapHtml} // Force re-render when HTML changes
           androidLayerType={Platform.OS === 'android' ? 'hardware' : undefined}

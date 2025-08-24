@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 interface Session {
   anonymousId: string;
@@ -28,9 +29,32 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     initializeSession();
   }, []);
 
+  const storageGet = async (key: string): Promise<string | null> => {
+    try {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(key);
+      }
+      return await AsyncStorage.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const storageSet = async (key: string, value: string): Promise<void> => {
+    try {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, value);
+        return;
+      }
+      await AsyncStorage.setItem(key, value);
+    } catch (e) {
+      // ignore
+    }
+  };
+
   const initializeSession = async () => {
     try {
-      const savedSession = await AsyncStorage.getItem('whisper_session');
+      const savedSession = await storageGet('whisper_session');
       if (savedSession) {
         const parsed = JSON.parse(savedSession);
         setSession({
@@ -46,7 +70,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           leftWhispers: [],
         };
         
-        await AsyncStorage.setItem('whisper_session', JSON.stringify(newSession));
+        await storageSet('whisper_session', JSON.stringify(newSession));
         setSession(newSession);
       }
     } catch (error) {
@@ -62,6 +86,32 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Listen for logout events (dispatched by AuthContext) so web tabs/components can reset session
+  useEffect(() => {
+    const handler = () => {
+      console.log('whisper_logout event received, clearing session');
+      // Clear stored session and reset in-memory session
+      clearSession();
+    };
+    console.log('Adding whisper_logout event listener');
+    try {
+      if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+        console.log('whisper_logout event listener added');
+        window.addEventListener('whisper_logout', handler as EventListener);
+      } else {
+        console.warn('window.addEventListener is not available');
+      }
+    } catch (e) {}
+
+    return () => {
+      try {
+        if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+          window.removeEventListener('whisper_logout', handler as EventListener);
+        }
+      } catch (e) {}
+    };
+  }, []);
+
   const generateAnonymousId = () => {
     return 'anon_' + Math.random().toString(36).substr(2, 16) + Date.now().toString(36);
   };
@@ -71,7 +121,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSession(updatedSession);
     
     try {
-      await AsyncStorage.setItem('whisper_session', JSON.stringify(updatedSession));
+  await storageSet('whisper_session', JSON.stringify(updatedSession));
     } catch (error) {
       console.error('Error saving session:', error);
     }
@@ -79,7 +129,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const clearSession = async () => {
     try {
-      await AsyncStorage.removeItem('whisper_session');
+  // Remove from both storages to avoid stale session restoration
+  try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem('whisper_session'); } } catch (e) {}
+  try { await AsyncStorage.removeItem('whisper_session'); } catch (e) {}
       const newSession: Session = {
         anonymousId: generateAnonymousId(),
         createdAt: new Date(),

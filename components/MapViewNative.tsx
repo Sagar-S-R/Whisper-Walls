@@ -36,7 +36,7 @@ export const MapViewNative: React.FC<MapViewNativeProps> = ({
   };
 
   const handleMapReady = () => {
-    console.log('🗺️ OpenStreetMap loaded successfully!');
+  // OpenStreetMap loaded
     setIsLoading(false);
     setMapError(false);
   };

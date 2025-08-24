@@ -314,7 +314,7 @@ export default function CreateScreen() {
         };
 
         const created = await WhisperService.createWhisper(whisperData);
-        console.log('[CreateScreen] createWhisper returned:', created);
+  // create whisper returned
 
         if (!created || !('_id' in created)) {
           throw new Error('createWhisper did not return created object');
