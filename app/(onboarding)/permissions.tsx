@@ -16,7 +16,7 @@ export default function PermissionsScreen() {
       } else {
         Alert.alert(
           'Location Required',
-          'Whisper Walls needs location access to show you nearby whispers and let you leave location-based messages.',
+          'Auris needs location access to show you nearby whispers and let you leave location-based messages.',
           [{ text: 'OK' }]
         );
       }
@@ -31,7 +31,7 @@ export default function PermissionsScreen() {
     } else {
       Alert.alert(
         'Location Required',
-        'Location access is essential for the Whisper Walls experience.',
+        'Location access is essential for the Auris experience.',
         [{ text: 'OK' }]
       );
     }

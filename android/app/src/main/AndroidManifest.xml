@@ -29,8 +29,8 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="whisper-walls"/>
-        <data android:scheme="com.anonymous.whisperwalls"/>
+        <data android:scheme="auris"/>
+        <data android:scheme="com.anonymous.auris"/>
       </intent-filter>
     </activity>
   </application>

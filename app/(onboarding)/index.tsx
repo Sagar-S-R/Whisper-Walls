@@ -70,7 +70,7 @@ export default function WelcomeScreen() {
           textAlign: 'center',
           marginBottom: 16
         }}>
-          Whisper Walls
+          Auris
         </Text>
         
         <Text style={{
@@ -93,8 +93,8 @@ export default function WelcomeScreen() {
             fontStyle: 'italic',
             lineHeight: 22
           }}>
-            "In every corner of this world, there are untold stories waiting to be whispered,
-            and hearts ready to listen."
+              "In every corner of this world, there are untold stories waiting to be whispered,
+              and hearts ready to listen."
           </Text>
         </View>
 

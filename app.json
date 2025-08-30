@@ -5,14 +5,14 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
-    "scheme": "whisper-walls",
+    "scheme": "auris",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Whisper Walls needs location access to show nearby whispers and let you leave location-based messages.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Whisper Walls needs location access to discover whispers as you move around."
+        "NSLocationWhenInUseUsageDescription": "Auris needs location access to show nearby whispers and let you leave location-based messages.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Auris needs location access to discover whispers as you move around."
       }
     },
     "android": {
@@ -20,7 +20,7 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
       ],
-      "package": "com.anonymous.whisperwalls"
+      "package": "com.anonymous.auris"
     },
     "web": {
       "bundler": "metro",

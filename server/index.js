@@ -739,7 +739,7 @@ app.get('/api/health', (req, res) => {
 
 // Start server and log startup status
 const server = app.listen(PORT, () => {
-  log(`Whisper Walls backend running on port ${PORT}`);
+  log(`Auris backend running on port ${PORT}`);
   try {
     const addr = server.address();
     if (addr) {

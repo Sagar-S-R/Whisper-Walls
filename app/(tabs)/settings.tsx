@@ -40,9 +40,9 @@ export default function SettingsScreen() {
               clearSession();
               await logout();
 
-              Alert.alert(
-                'Account Deleted',
-                'Your account has been permanently deleted. Thank you for using Whisper Walls.',
+                Alert.alert(
+                  'Account Deleted',
+                  'Your account has been permanently deleted. Thank you for using Auris.',
                 [
                   {
                     text: 'OK',
@@ -66,7 +66,7 @@ export default function SettingsScreen() {
   const handleDataUsage = () => {
     Alert.alert(
       'Data Usage Information',
-      'Whisper Walls collects minimal data:\n\n• Anonymous session IDs\n• Approximate location for discoveries\n• App usage patterns\n• Optional account details\n\nAll whispers remain completely anonymous and cannot be traced back to you.',
+      'Auris collects minimal data:\n\n• Anonymous session IDs\n• Approximate location for discoveries\n• App usage patterns\n• Optional account details\n\nAll whispers remain completely anonymous and cannot be traced back to you.',
       [{ text: 'Got it' }]
     );
   };
@@ -479,7 +479,7 @@ export default function SettingsScreen() {
             {renderSettingItem(
               'help-circle',
               'Help & Tutorial',
-              'Learn how to use Whisper Walls',
+              'Learn how to use Auris',
               () => router.push('/(onboarding)/tutorial')
             )}
             <View style={{ height: 1, backgroundColor: '#f3f4f6', marginHorizontal: 16 }} />
@@ -487,7 +487,7 @@ export default function SettingsScreen() {
               'mail',
               'Contact Support',
               'Get help or share feedback',
-              () => Alert.alert('Contact Support', 'Please email support@whisperwalls.example')
+              () => Alert.alert('Contact Support', 'Please email support@auris.example')
             )}
             <View style={{ height: 1, backgroundColor: '#f3f4f6', marginHorizontal: 16 }} />
             {renderSettingItem(
@@ -508,7 +508,7 @@ export default function SettingsScreen() {
                 {renderSettingItem(
                   'log-out',
                   'Logout',
-                  'Clear your session and log out of Whisper Walls',
+                  'Clear your session and log out of Auris',
                   () => {
                     Alert.alert(
                       'Logout',
@@ -579,7 +579,7 @@ export default function SettingsScreen() {
             color: '#6b7280',
             marginBottom: 8
           }}>
-            Whisper Walls v1.0.0
+            Auris v1.0.0
           </Text>
           <Text style={{
             textAlign: 'center',

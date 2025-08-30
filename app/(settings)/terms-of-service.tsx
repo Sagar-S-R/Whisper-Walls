@@ -139,20 +139,20 @@ export default function TermsOfServiceScreen() {
 
           {/* Introduction */}
           {renderSection(
-            'Welcome to Whisper Walls',
-            'By using Whisper Walls, you agree to these Terms of Service. Please read them carefully. These terms govern your use of the Whisper Walls mobile application and all related services.'
+            'Welcome to Auris',
+            'By using Auris, you agree to these Terms of Service. Please read them carefully. These terms govern your use of the Auris mobile application and all related services.'
           )}
 
           {/* Acceptance */}
           {renderSection(
             'Acceptance of Terms',
-            'By downloading, installing, or using Whisper Walls, you confirm that you are at least 17 years old and agree to be bound by these terms. If you do not agree to these terms, please do not use the app.'
+            'By downloading, installing, or using Auris, you confirm that you are at least 17 years old and agree to be bound by these terms. If you do not agree to these terms, please do not use the app.'
           )}
 
           {/* Service Description */}
           {renderSection(
-            'About Whisper Walls',
-            'Whisper Walls is an anonymous messaging platform that allows users to share thoughts, feelings, and experiences while discovering similar content from others nearby. All messages (whispers) are completely anonymous and cannot be traced back to their creators.'
+            'About Auris',
+            'Auris is an anonymous messaging platform that allows users to share thoughts, feelings, and experiences while discovering similar content from others nearby. All messages (whispers) are completely anonymous and cannot be traced back to their creators.'
           )}
 
           {/* User Responsibilities */}
@@ -187,7 +187,7 @@ export default function TermsOfServiceScreen() {
           {/* Content Policy */}
           {renderSection(
             'Content Guidelines',
-            'While Whisper Walls celebrates anonymous expression, all content must comply with our community guidelines. We prohibit content that is illegal, harmful, threatening, or violates others\' rights. We reserve the right to remove content and suspend accounts that violate these guidelines.'
+            'While Auris celebrates anonymous expression, all content must comply with our community guidelines. We prohibit content that is illegal, harmful, threatening, or violates others\'s rights. We reserve the right to remove content and suspend accounts that violate these guidelines.'
           )}
 
           {/* Anonymity and Privacy */}
@@ -199,7 +199,7 @@ export default function TermsOfServiceScreen() {
           {/* Intellectual Property */}
           {renderSection(
             'Your Content Rights',
-            'You retain ownership of the content you create. By using Whisper Walls, you grant us a non-exclusive license to display, store, and distribute your anonymous whispers within the app. Since content is anonymous, this license continues even if you delete your account.'
+            'You retain ownership of the content you create. By using Auris, you grant us a non-exclusive license to display, store, and distribute your anonymous whispers within the app. Since content is anonymous, this license continues even if you delete your account.'
           )}
 
           {/* Our Rights */}
@@ -217,20 +217,20 @@ export default function TermsOfServiceScreen() {
           {/* Disclaimers */}
           {renderSection(
             'Service Availability',
-            'Whisper Walls is provided "as is" without warranties. We strive for reliable service but cannot guarantee 100% uptime or perfect functionality. We are not responsible for any damages resulting from service interruptions or technical issues.'
+            'Auris is provided "as is" without warranties. We strive for reliable service but cannot guarantee 100% uptime or perfect functionality. We are not responsible for any damages resulting from service interruptions or technical issues.'
           )}
 
           {/* Age Requirements */}
           {renderSection(
             'Age Requirements',
-            'Whisper Walls is intended for users 17 and older. We do not knowingly collect information from users under 17. If you believe a user under 17 is using the app, please contact us immediately.',
+            'Auris is intended for users 17 and older. We do not knowingly collect information from users under 17. If you believe a user under 17 is using the app, please contact us immediately.',
             true
           )}
 
           {/* Limitation of Liability */}
           {renderSection(
             'Limitation of Liability',
-            'To the fullest extent permitted by law, Whisper Walls and its creators are not liable for any indirect, incidental, or consequential damages arising from your use of the app. Our total liability is limited to the amount you paid for the service (if any).'
+            'To the fullest extent permitted by law, Auris and its creators are not liable for any indirect, incidental, or consequential damages arising from your use of the app. Our total liability is limited to the amount you paid for the service (if any).'
           )}
 
           {/* Termination */}
@@ -280,7 +280,7 @@ export default function TermsOfServiceScreen() {
               fontWeight: '600',
               marginBottom: 8
             }}>
-              legal@whisperwalls.app
+              legal@auris.app
             </Text>
             <Text style={{
               fontSize: 14,
@@ -306,7 +306,7 @@ export default function TermsOfServiceScreen() {
               fontWeight: '600',
               textAlign: 'center'
             }}>
-              By using Whisper Walls, you acknowledge that you have read, understood, and agree to these Terms of Service.
+              By using Auris, you acknowledge that you have read, understood, and agree to these Terms of Service.
             </Text>
           </View>
         </View>

@@ -28,7 +28,7 @@ function AppContent() {
           color: '#ec4899',
           marginBottom: 16
         }}>
-          Whisper Walls
+          Auris
         </Text>
         <Text style={{ 
           fontSize: 16, 

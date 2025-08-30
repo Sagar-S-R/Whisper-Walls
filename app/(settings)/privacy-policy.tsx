@@ -126,7 +126,7 @@ export default function PrivacyPolicyScreen() {
           {/* Introduction */}
           {renderSection(
             'Your Privacy Matters',
-            'At Whisper Walls, we believe in radical transparency about how we handle your data. This privacy policy explains our commitment to protecting your anonymity while creating meaningful connections through shared experiences.'
+            'At Auris, we believe in radical transparency about how we handle your data. This privacy policy explains our commitment to protecting your anonymity while creating meaningful connections through shared experiences.'
           )}
 
           {/* Core Principle */}
@@ -218,7 +218,7 @@ export default function PrivacyPolicyScreen() {
           {/* Children\'s Privacy */}
           {renderSection(
             'Children\'s Privacy',
-            'Whisper Walls is intended for users 17 and older. We do not knowingly collect personal information from children under 17. If you believe a child has provided us with personal information, please contact us immediately.'
+            'Auris is intended for users 17 and older. We do not knowingly collect personal information from children under 17. If you believe a child has provided us with personal information, please contact us immediately.'
           )}
 
           {/* Changes to Policy */}
@@ -255,7 +255,7 @@ export default function PrivacyPolicyScreen() {
               color: '#be185d',
               fontWeight: '600'
             }}>
-              privacy@whisperwalls.app
+              privacy@auris.app
             </Text>
           </View>
         </View>

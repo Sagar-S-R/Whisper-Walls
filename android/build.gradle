@@ -10,6 +10,10 @@ buildscript {
     classpath('com.facebook.react:react-native-gradle-plugin')
     classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
   }
+  ext {
+        // ... other configurations
+        ndkVersion = "27.1.12297006"
+  }
 }
 
 def reactNativeAndroidDir = new File(
@@ -21,16 +25,19 @@ def reactNativeAndroidDir = new File(
 )
 
 allprojects {
-  repositories {
-    maven {
-      // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
-      url(reactNativeAndroidDir)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url "https://www.jitpack.io" }
+        // Add any other existing repositories you had
     }
-
-    google()
-    mavenCentral()
-    maven { url 'https://www.jitpack.io' }
-  }
+    
+    // Add this block
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = "17"  // Match Java compilation target
+        }
+    }
 }
 
 apply plugin: "expo-root-project"
