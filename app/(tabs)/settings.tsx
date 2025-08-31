@@ -5,11 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSession } from '@/contexts/SessionContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_BASE_URL } from '@/config/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SettingsScreen() {
   const { session, clearSession } = useSession();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, checkAuth } = useAuth();
   const [notifications, setNotifications] = useState(true);
   const [breakupMode, setBreakupMode] = useState(false);
   const [proximityRadius, setProximityRadius] = useState(100);
@@ -32,8 +33,26 @@ export default function SettingsScreen() {
           style: 'destructive',
             onPress: async () => {
             try {
-              // Here you would call your API to delete the account
-              // await deleteUserAccount(user.id);
+              // Get stored auth data
+              const authDataStr = await AsyncStorage.getItem('whisper_auth');
+              if (!authDataStr || !user) {
+                throw new Error('No auth data found');
+              }
+              const authData = JSON.parse(authDataStr);
+              const token = authData.token;
+
+              // Call API to delete the account
+              const res = await fetch(`${API_BASE_URL}/user/${user.id}`, {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (!res.ok) {
+                throw new Error('Failed to delete account');
+              }
 
               // Clear local data in both storages and reset session
               await clearAllAppData();
@@ -113,7 +132,7 @@ export default function SettingsScreen() {
   const handleResetData = () => {
     Alert.alert(
       'Reset All Data',
-      'This will clear all your whispers, discoveries, and settings. This cannot be undone.',
+      'This will clear all your whispers, discoveries, and local settings. You will stay logged in and can continue using the app with a fresh start. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -121,9 +140,53 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await clearAllAppData();
-              clearSession();
-              router.replace('/(onboarding)');
+              if (isAuthenticated && user) {
+                // Reset user data on server
+                const authDataStr = await AsyncStorage.getItem('whisper_auth');
+                if (authDataStr) {
+                  const authData = JSON.parse(authDataStr);
+                  const token = authData.token;
+                  
+                  const resetResponse = await fetch(`${API_BASE_URL}/user/${user.id}/reset`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+
+                  if (resetResponse.ok) {
+                    // Update cached user data with reset values
+                    const updatedUser = { ...user, createdWhispers: [], discoveredWhispers: [] };
+                    const updatedAuthData = {
+                      token: authData.token,
+                      user: updatedUser,
+                      timestamp: Date.now()
+                    };
+                    await AsyncStorage.setItem('whisper_auth', JSON.stringify(updatedAuthData));
+                    
+                    // Refresh the authentication state to update the context
+                    await checkAuth();
+                  }
+                }
+              }
+              
+              // Don't clear all app data - just reset user whispers on server
+              // await clearAllAppData();
+              // clearSession();
+              // Don't logout - keep user logged in
+              // await logout(); // Removed - user stays logged in
+              
+              Alert.alert(
+                'Data Reset Complete',
+                'Your data has been reset successfully. Let\'s get you started with a quick tutorial.',
+                [
+                  {
+                    text: 'Ok',
+                    onPress: () => router.replace('/(onboarding)/tutorial')
+                  }
+                ]
+              );
             } catch (error) {
               console.error('Error clearing data:', error);
               Alert.alert('Error', 'Failed to reset data. Please try again.');
@@ -137,6 +200,7 @@ export default function SettingsScreen() {
   // Clear known app keys from both AsyncStorage and browser localStorage
   const clearAllAppData = async () => {
     const keys = [
+      'whisper_auth',
       'whisper_token',
       'whisper_user',
       'whisper_session',
@@ -456,6 +520,7 @@ export default function SettingsScreen() {
                 Alert.alert(
                   'Delete Account',
                   'This will permanently delete your account and all associated data. This action cannot be undone.\n\nYour anonymous whispers will remain in the app for other users to discover, but they can never be traced back to you.',
+
                   [
                     { text: 'Cancel', style: 'cancel' },
                     {
@@ -487,7 +552,7 @@ export default function SettingsScreen() {
               'mail',
               'Contact Support',
               'Get help or share feedback',
-              () => Alert.alert('Contact Support', 'Please email support@auris.example')
+              () => Alert.alert('Contact Support', 'Please email contact.auris@gmail.com')
             )}
             <View style={{ height: 1, backgroundColor: '#f3f4f6', marginHorizontal: 16 }} />
             {renderSettingItem(
@@ -579,7 +644,7 @@ export default function SettingsScreen() {
             color: '#6b7280',
             marginBottom: 8
           }}>
-            Auris v1.0.0
+            Auris v1.0.1
           </Text>
           <Text style={{
             textAlign: 'center',

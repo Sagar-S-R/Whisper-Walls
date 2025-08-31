@@ -23,9 +23,8 @@ export default function Register() {
       const success = await register(username, email, password, displayName);
       if (success) {
         Alert.alert('Success', 'Account created! Please login.');
-      } else {
-        Alert.alert('Error', 'Registration failed. Please try again.');
       }
+      // Don't show error alert here - AuthContext already handles specific error messages
     } catch (err) {
       Alert.alert('Error', 'Network error. Please try again.');
     } finally {

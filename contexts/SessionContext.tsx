@@ -89,23 +89,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // Listen for logout events (dispatched by AuthContext) so web tabs/components can reset session
   useEffect(() => {
     const handler = () => {
-      console.log('whisper_logout event received, clearing session');
       // Clear stored session and reset in-memory session
       clearSession();
     };
-    console.log('Adding whisper_logout event listener');
     try {
-      if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-        console.log('whisper_logout event listener added');
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
         window.addEventListener('whisper_logout', handler as EventListener);
-      } else {
-        console.warn('window.addEventListener is not available');
       }
     } catch (e) {}
 
     return () => {
       try {
-        if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+        if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
           window.removeEventListener('whisper_logout', handler as EventListener);
         }
       } catch (e) {}
@@ -123,7 +118,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
   await storageSet('whisper_session', JSON.stringify(updatedSession));
     } catch (error) {
-      console.error('Error saving session:', error);
+      // Silent error handling for session operations
     }
   };
 
@@ -140,7 +135,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       };
       setSession(newSession);
     } catch (error) {
-      console.error('Error clearing session:', error);
+      // Silent error handling for session operations
     }
   };
 

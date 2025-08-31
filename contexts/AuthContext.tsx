@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { API_BASE_URL } from '@/config/api';
 
@@ -73,42 +73,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // On web, prefer localStorage for immediate, cross-tab consistency.
       if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-        console.log('Checking if window and localStorage are available');
-        if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
-          console.log('window and localStorage are available');
-        } else {
-          console.warn('window or localStorage is not available');
-        }
+        const localAuth = window.localStorage.getItem('whisper_auth');
 
-        const localToken = window.localStorage.getItem('whisper_token');
-        const localUser = window.localStorage.getItem('whisper_user');
-
-        if (localToken && localUser) {
-          setUser(JSON.parse(localUser));
-          setIsAuthenticated(true);
+        if (localAuth) {
+          const authData = JSON.parse(localAuth);
+          const now = Date.now();
+          const thirtyDays = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
+          if (now - authData.timestamp < thirtyDays) {
+            setUser(authData.user);
+            setIsAuthenticated(true);
+          } else {
+            // Expired, remove
+            window.localStorage.removeItem('whisper_auth');
+            setUser(null);
+            setIsAuthenticated(false);
+          }
         } else {
           // If AsyncStorage has stale tokens (from previous runs), remove them so they don't resurrect auth on web
-          try { await AsyncStorage.removeItem('whisper_token'); } catch {}
-          try { await AsyncStorage.removeItem('whisper_user'); } catch {}
+          try { await AsyncStorage.removeItem('whisper_auth'); } catch {}
           setUser(null);
           setIsAuthenticated(false);
         }
         return;
       }
 
-      const token = await storageGet('whisper_token');
-      const userData = await storageGet('whisper_user');
+      const authDataStr = await storageGet('whisper_auth');
 
-      if (token && userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
+      if (authDataStr) {
+        const authData = JSON.parse(authDataStr);
+        const now = Date.now();
+        const thirtyDays = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
+        if (now - authData.timestamp < thirtyDays) {
+          setUser(authData.user);
+          setIsAuthenticated(true);
+        } else {
+          // Expired, remove
+          await storageRemove('whisper_auth');
+          setUser(null);
+          setIsAuthenticated(false);
+        }
       } else {
         setUser(null);
         setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error('Error checking auth:', error);
       setUser(null);
       setIsAuthenticated(false);
     } finally {
@@ -123,26 +131,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      
+
       const data = await res.json();
-      
+
       if (res.ok && data.token && data.user) {
-  // Save token and user data (use platform-appropriate storage)
-  await storageSet('whisper_token', data.token);
-  await storageSet('whisper_user', JSON.stringify(data.user));
-        
+        // Save token and user data with timestamp (use platform-appropriate storage)
+        const authData = {
+          token: data.token,
+          user: data.user,
+          timestamp: Date.now()
+        };
+        await storageSet('whisper_auth', JSON.stringify(authData));
+
         setUser(data.user);
         setIsAuthenticated(true);
-        
-        // Navigate to main app
-        router.replace('/(tabs)');
+
+        // Check if onboarding is completed
+        const hasCompletedOnboarding = await storageGet('has_completed_onboarding');
+        if (hasCompletedOnboarding === 'true') {
+          // Navigate to main app
+          router.replace('/(tabs)');
+        } else {
+          // Navigate to tutorial
+          router.replace('/(onboarding)/tutorial');
+        }
         return true;
       } else {
-        console.error('Login failed:', data.error);
+        // Show specific error message
+        let errorMessage = 'Invalid email or password. Please try again.';
+        if (data.error) {
+          if (data.error.includes('Invalid credentials')) {
+            errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+          } else {
+            errorMessage = data.error;
+          }
+        }
+        Alert.alert('Login Failed', errorMessage);
         return false;
       }
     } catch (error) {
-      console.error('Login error:', error);
+      Alert.alert('Login Failed', 'Network error. Please check your connection and try again.');
       return false;
     }
   };
@@ -154,19 +182,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, password, displayName })
       });
-      
+
       const data = await res.json();
-      
+
       if (res.ok) {
         // Registration successful, navigate to login
         router.push('/(onboarding)/login');
         return true;
       } else {
-        console.error('Registration failed:', data.error);
+        // Show specific error message based on server response
+        let errorMessage = 'Registration failed. Please try again.';
+        if (data.error) {
+          if (data.error.includes('email') && data.error.includes('already exists')) {
+            errorMessage = 'This email is already registered. Please use a different email or try logging in.';
+          } else if (data.error.includes('username') && data.error.includes('already exists')) {
+            errorMessage = 'This username is already taken. Please choose a different username.';
+          } else {
+            errorMessage = data.error;
+          }
+        }
+        Alert.alert('Registration Failed', errorMessage);
         return false;
       }
     } catch (error) {
-      console.error('Registration error:', error);
+      Alert.alert('Registration Failed', 'Network error. Please check your connection and try again.');
       return false;
     }
   };
@@ -174,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
   // Clear stored data
+  await storageRemove('whisper_auth');
   await storageRemove('whisper_token');
   await storageRemove('whisper_user');
   // Also clear the anonymous session storage so web UIs don't restore it
@@ -187,14 +227,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       router.replace('/(onboarding)');
       
       // Notify other parts of the app (web) to clear in-memory session/state
-      console.log('Dispatching whisper_logout event');
-      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
         window.dispatchEvent(new Event('whisper_logout'));
-      } else {
-        console.warn('window.dispatchEvent is not available');
       }
     } catch (error) {
-      console.error('Logout error:', error);
+      // Silent error handling for logout
     }
   };
 

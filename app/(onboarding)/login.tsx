@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function Login() {
   const { login } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,9 +19,7 @@ export default function Login() {
     setLoading(true);
     try {
       const success = await login(email, password);
-      if (!success) {
-        Alert.alert('Error', 'Invalid email or password');
-      }
+      // Don't show error alert here - AuthContext already handles specific error messages
     } catch (err) {
       Alert.alert('Error', 'Network error. Please try again.');
     } finally {

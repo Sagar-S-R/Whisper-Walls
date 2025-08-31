@@ -567,8 +567,18 @@ app.delete('/api/user/:id', optionalAuth, async (req, res) => {
 
     // Delete user-related data (excluding anonymous whispers)
     await User.deleteOne({ _id: id });
-    await db.collection('user_preferences').deleteMany({ user_id: id });
-    await db.collection('user_history').deleteMany({ user_id: id });
+    
+    // Delete user preferences and history if collections exist
+    try {
+      const db = mongoose.connection.db;
+      if (db) {
+        await db.collection('user_preferences').deleteMany({ user_id: id });
+        await db.collection('user_history').deleteMany({ user_id: id });
+      }
+    } catch (collectionError) {
+      // Collections might not exist, continue with user deletion
+      log('  Note: user_preferences or user_history collections not found, skipping');
+    }
 
     log(`  user ${id} deleted successfully`);
     res.status(200).json({ message: 'Account deleted successfully' });
@@ -578,36 +588,100 @@ app.delete('/api/user/:id', optionalAuth, async (req, res) => {
   }
 });
 
-// Get user's whispers - Updated to support both authenticated and anonymous users
+// Reset user data (delete whispers and clear discoveries)
+app.post('/api/user/:id/reset', optionalAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    log(`POST /api/user/${id}/reset`);
+
+    // Verify user exists
+    const user = await User.findById(id);
+    if (!user) {
+      log(`  user ${id} not found`);
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get all whisper IDs that need to be deleted
+    const whisperIdsToDelete = [...user.createdWhispers];
+
+    // Delete all whispers created by this user from the database
+    if (whisperIdsToDelete.length > 0) {
+      const deleteResult = await Whisper.deleteMany({ _id: { $in: whisperIdsToDelete } });
+      log(`  deleted ${deleteResult.deletedCount} created whispers from database`);
+    }
+
+    // Also delete any whispers that have this user's creatorId (in case they weren't linked to profile)
+    const creatorDeleteResult = await Whisper.deleteMany({ creatorId: id });
+    log(`  deleted ${creatorDeleteResult.deletedCount} whispers by creatorId from database`);
+
+    // Clear user's whispers and discoveries arrays and reset stats
+    await User.findByIdAndUpdate(id, {
+      $set: {
+        createdWhispers: [],
+        discoveredWhispers: [],
+        stats: {
+          whispersCreated: 0,
+          whispersDiscovered: 0,
+          reactionsGiven: 0,
+          likesReceived: 0
+        }
+      }
+    });
+
+    log(`  user ${id} data reset successfully - whispers deleted from database`);
+    res.status(200).json({ message: 'User data reset successfully' });
+  } catch (error) {
+    console.error('Reset user data error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get user's whispers - For authenticated users, returns ALL whispers from their account
 app.get('/api/whispers/user/:sessionId', optionalAuth, async (req, res) => {
   try {
     const { sessionId } = req.params;
     log(`GET /api/whispers/user/${sessionId}`);
-    
+
     let whispers = [];
-    
-    // If user is authenticated, get whispers from their profile
+
+    // If user is authenticated, get ALL whispers from their account (ignore sessionId)
     if (req.user) {
       try {
         const user = await User.findById(req.user.userId).populate('createdWhispers');
-        if (user && user.createdWhispers.length > 0) {
+        if (user) {
           whispers = user.createdWhispers.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-          log(`  found ${whispers.length} whispers from authenticated user profile`);
+          log(`  found ${whispers.length} whispers from user profile array`);
+
+          // If no whispers in profile array, also search by creatorId (fallback for unlinked whispers)
+          if (whispers.length === 0) {
+            const unlinkedWhispers = await Whisper.find({ creatorId: req.user.userId }).sort({ createdAt: -1 });
+            if (unlinkedWhispers.length > 0) {
+              whispers = unlinkedWhispers;
+              log(`  found ${whispers.length} unlinked whispers by creatorId`);
+
+              // Optionally re-link them to the user's profile
+              try {
+                await User.findByIdAndUpdate(req.user.userId, {
+                  $push: { createdWhispers: { $each: unlinkedWhispers.map(w => w._id) } }
+                });
+                log(`  re-linked ${unlinkedWhispers.length} whispers to user profile`);
+              } catch (linkError) {
+                log('  failed to re-link whispers:', linkError.message);
+              }
+            }
+          }
         } else {
-          // Fallback to sessionId lookup
-          whispers = await Whisper.find({ sessionId }).sort({ createdAt: -1 });
-          log(`  fallback: found ${whispers.length} whispers by sessionId`);
+          log(`  authenticated user not found`);
         }
       } catch (userError) {
-        log('  error fetching from user profile, falling back to sessionId:', userError.message);
-        whispers = await Whisper.find({ sessionId }).sort({ createdAt: -1 });
+        log('  error fetching authenticated user whispers:', userError.message);
       }
     } else {
       // Anonymous user - lookup by sessionId
       whispers = await Whisper.find({ sessionId }).sort({ createdAt: -1 });
       log(`  found ${whispers.length} whispers for anonymous user`);
     }
-    
+
     res.json(whispers);
   } catch (error) {
     console.error('Get user whispers error:', error);
@@ -615,7 +689,7 @@ app.get('/api/whispers/user/:sessionId', optionalAuth, async (req, res) => {
   }
 });
 
-// Get discovered whispers
+// Get discovered whispers - For authenticated users, returns ALL discovered whispers from their account
 app.get('/api/whispers/discovered/:sessionId', optionalAuth, async (req, res) => {
   try {
     const { sessionId } = req.params;
@@ -623,21 +697,37 @@ app.get('/api/whispers/discovered/:sessionId', optionalAuth, async (req, res) =>
     
     let whispers = [];
     
-    // If user is authenticated, get discoveries from their profile
+    // If user is authenticated, get ALL discoveries from their account (ignore sessionId)
     if (req.user) {
       try {
         const user = await User.findById(req.user.userId).populate('discoveredWhispers');
-        if (user && user.discoveredWhispers.length > 0) {
+        if (user) {
           whispers = user.discoveredWhispers.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-          log(`  found ${whispers.length} discovered whispers from authenticated user profile`);
+          log(`  found ${whispers.length} discovered whispers from user profile array`);
+
+          // If no discoveries in profile array, also search by discoveredBy array (fallback)
+          if (whispers.length === 0) {
+            const unlinkedDiscoveries = await Whisper.find({ discoveredBy: req.user.userId.toString() }).sort({ createdAt: -1 });
+            if (unlinkedDiscoveries.length > 0) {
+              whispers = unlinkedDiscoveries;
+              log(`  found ${whispers.length} unlinked discoveries by discoveredBy`);
+
+              // Optionally re-link them to the user's profile
+              try {
+                await User.findByIdAndUpdate(req.user.userId, {
+                  $push: { discoveredWhispers: { $each: unlinkedDiscoveries.map(w => w._id) } }
+                });
+                log(`  re-linked ${unlinkedDiscoveries.length} discoveries to user profile`);
+              } catch (linkError) {
+                log('  failed to re-link discoveries:', linkError.message);
+              }
+            }
+          }
         } else {
-          // Fallback to sessionId lookup
-          whispers = await Whisper.find({ discoveredBy: sessionId }).sort({ createdAt: -1 });
-          log(`  fallback: found ${whispers.length} discovered whispers by sessionId`);
+          log(`  authenticated user not found`);
         }
       } catch (userError) {
-        log('  error fetching discoveries from user profile, falling back to sessionId:', userError.message);
-        whispers = await Whisper.find({ discoveredBy: sessionId }).sort({ createdAt: -1 });
+        log('  error fetching authenticated user discoveries:', userError.message);
       }
     } else {
       // Anonymous user - lookup by sessionId

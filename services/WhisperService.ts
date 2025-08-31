@@ -11,14 +11,20 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
     // Prefer browser localStorage on web for immediate consistency with logout
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
-        const t = window.localStorage.getItem('whisper_token');
-        if (t) return { Authorization: `Bearer ${t}` };
+        const authDataStr = window.localStorage.getItem('whisper_auth');
+        if (authDataStr) {
+          const authData = JSON.parse(authDataStr);
+          if (authData.token) return { Authorization: `Bearer ${authData.token}` };
+        }
       } catch (e) {}
     }
 
-    const token = await AsyncStorage.getItem('whisper_token');
-    if (token) {
-      return { Authorization: `Bearer ${token}` };
+    const authDataStr = await AsyncStorage.getItem('whisper_auth');
+    if (authDataStr) {
+      const authData = JSON.parse(authDataStr);
+      if (authData.token) {
+        return { Authorization: `Bearer ${authData.token}` };
+      }
     }
   } catch {}
   return {};
